@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Watermanagement</title>
+<style>
+:root { --bg: #eef4f8; --kaart: #ffffff; --tekst: #1d2b36; --zacht: #5b6b77; --accent: #1f6fb2; --lijn: #d6e1ea; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #14222d; --kaart: #1b2b37; --tekst: #e3ecf2; --zacht: #9fb0bd; --accent: #6cb2ee; --lijn: #2c3e4c; color-scheme: dark; }
+}
+body { margin: 0; background: var(--bg); color: var(--tekst);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 720px; margin: 0 auto; padding: 48px 16px; }
+h1 { margin: 0 0 4px; font-size: 28px; text-wrap: balance; }
+.sub { margin: 0 0 32px; color: var(--zacht); }
+ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+a.app { display: block; padding: 16px 18px; background: var(--kaart); border: 1px solid var(--lijn);
+  border-radius: 10px; color: inherit; text-decoration: none; }
+a.app:hover, a.app:focus-visible { border-color: var(--accent); outline: none; }
+a.app strong { color: var(--accent); font-size: 18px; }
+a.app span { display: block; margin-top: 4px; color: var(--zacht); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+<h1>Watermanagement</h1>
+<p class="sub">Kleine rekenapps over grondwater, drainage en waterbeheer in Nederland.</p>
+<ul>
+<li><a class="app" href="polder3d/"><strong>Polder 3D</strong><span>Grondwater tussen sloten in 3D: Hooghoudt, watervolume, Kraijenhoff van de Leur na een bui, droogte met stuwen en wateraanvoer, kwel (Mazure) en echte weerreeksen van het KNMI.</span></a></li>
+</ul>
+</main>
+</body>
+</html>

@@ -1,0 +1,1247 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<title>Polder 3D</title>
+<style>
+:root {
+  --bg: #cfe3ef;
+  --paneel: rgba(255, 255, 255, 0.97);
+  --lijn: #dde4ea;
+  --paneel-vast: #ffffff;
+  --tekst: #1d2b36;
+  --zacht: #5b6b77;
+  --accent: #1f6fb2;
+  --goed: #2e7d32;
+  --fout: #c62828;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14222d;
+    --paneel: rgba(24, 37, 48, 0.97);
+    --lijn: #2c3e4c;
+    --paneel-vast: #182530;
+    --tekst: #e3ecf2;
+    --zacht: #9fb0bd;
+    --accent: #6cb2ee;
+    --goed: #74c278;
+    --fout: #f07070;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #14222d;
+  --paneel: rgba(24, 37, 48, 0.97);
+  --lijn: #2c3e4c;
+  --paneel-vast: #182530;
+  --tekst: #e3ecf2;
+  --zacht: #9fb0bd;
+  --accent: #6cb2ee;
+  --goed: #74c278;
+  --fout: #f07070;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--tekst);
+  font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+#scene { position: fixed; inset: 0; }
+
+#paneel {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  width: 290px;
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+  padding: 14px 16px;
+  background: var(--paneel);
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+h1 { margin: 0; font-size: 18px; }
+.sub { margin: 2px 0 12px; color: var(--zacht); }
+
+label { display: block; margin: 10px 0; }
+label output { float: right; font-variant-numeric: tabular-nums; color: var(--accent); }
+input[type=range], select { width: 100%; margin-top: 4px; }
+label.check { display: flex; gap: 6px; align-items: center; }
+label.check input { margin: 0; }
+
+details { margin: 12px 0; }
+summary { cursor: pointer; color: var(--zacht); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+#uitkomst, #volume, #tijd-uitkomst, #kwel-uitkomst {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  margin: 14px 0 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--lijn);
+}
+#uitkomst dt, #volume dt, #tijd-uitkomst dt, #kwel-uitkomst dt { color: var(--zacht); }
+#uitkomst dd, #volume dd, #tijd-uitkomst dd, #kwel-uitkomst dd { margin: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+#volume dd.klein { margin-top: -4px; font-weight: 400; color: var(--zacht); }
+
+#tijd, #kwel { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--lijn); }
+h2 { margin: 0; font-size: 15px; }
+.uitleg { margin: 2px 0 8px; font-size: 12px; color: var(--zacht); }
+#tijd-uitkomst, #kwel-uitkomst { border-top: 0; margin-top: 6px; padding-top: 0; }
+#tijd-uitkomst dd.klein { margin-top: -4px; font-weight: 400; color: var(--zacht); }
+
+.tabs { display: flex; gap: 4px; margin-bottom: 6px; }
+.tabs button { flex: 1; padding: 5px 4px; font-size: 13px; border-color: var(--lijn); color: var(--zacht); }
+.tabs button[aria-selected="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.tabs button:hover { background: transparent; color: var(--accent); }
+
+#legenda { display: flex; gap: 12px; font-size: 11px; color: var(--zacht); margin-bottom: 2px; }
+#legenda:empty { display: none; }
+#legenda span { display: inline-flex; align-items: center; gap: 4px; }
+#legenda i { display: inline-block; width: 14px; height: 2px; border-radius: 1px; }
+
+button {
+  font: inherit;
+  padding: 5px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+button:hover { background: var(--accent); color: var(--paneel-vast); }
+
+#grafiek { position: relative; margin: 10px 0 0; }
+#grafiek figcaption { font-size: 12px; color: var(--zacht); margin-bottom: 2px; }
+#regen-svg { width: 100%; height: auto; display: block; }
+#regen-svg rect { fill: var(--accent); opacity: 0.55; }
+#regen-svg text { font-size: 9px; fill: var(--zacht); }
+#grafiek-svg { width: 100%; height: auto; display: block; cursor: crosshair; }
+#grafiek-svg text { font-size: 9px; fill: var(--zacht); font-variant-numeric: tabular-nums; }
+#grafiek-svg .as { stroke: var(--lijn); stroke-width: 1; }
+#grafiek-svg .lijn { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+#grafiek-svg .lijn.ref { stroke: var(--zacht); }
+#grafiek-svg .label { font-weight: 600; }
+#grafiek-svg .vlak { fill: var(--accent); opacity: 0.12; }
+#grafiek-svg .nu { stroke: var(--tekst); stroke-width: 1; stroke-dasharray: 2 2; }
+#grafiek-svg .punt { fill: var(--accent); stroke: var(--paneel-vast); stroke-width: 2; }
+#tip {
+  position: absolute;
+  bottom: -6px;
+  padding: 2px 6px;
+  font-size: 11px;
+  background: var(--tekst);
+  color: var(--paneel-vast);
+  border-radius: 4px;
+  pointer-events: none;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+#legenda .ref { background: var(--zacht); }
+#legenda .maatregel { background: var(--accent); }
+
+#status { margin: 6px 0; font-weight: 600; }
+#status.goed { color: var(--goed); }
+#status.fout { color: var(--fout); }
+
+.noot { margin: 10px 0 0; font-size: 12px; color: var(--zacht); }
+
+@media (max-width: 600px) {
+  #paneel {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    max-height: 45%;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    border-radius: 10px 10px 0 0;
+  }
+}
+</style>
+<div id="scene"></div>
+
+  <aside id="paneel">
+    <h1>Polder 3D</h1>
+    <p class="sub">Grondwaterstand tussen sloten (Hooghoudt)</p>
+
+    <label>Grondsoort
+      <select id="grond"></select>
+    </label>
+    <label>Doorlatendheid K <output id="K-out"></output>
+      <input id="K" type="range" min="-2" max="1" step="0.01">
+    </label>
+    <label>Slootafstand L <output id="L-out"></output>
+      <input id="L" type="range" min="10" max="100" step="1" value="30">
+    </label>
+    <label>Neerslagoverschot q <output id="q-out"></output>
+      <input id="q" type="range" min="1" max="15" step="0.5" value="7">
+    </label>
+    <label>Pakketdikte D <output id="D-out"></output>
+      <input id="D" type="range" min="0.5" max="5" step="0.1" value="1.5">
+    </label>
+    <label>Maaiveld boven slootpeil <output id="M-out"></output>
+      <input id="M" type="range" min="0.3" max="2" step="0.05" value="1">
+    </label>
+
+    <label>Porositeit n <output id="n-out"></output>
+      <input id="n" type="range" min="0.25" max="0.6" step="0.01" value="0.45">
+    </label>
+    <label>Bergingscoëfficiënt μ <output id="mu-out"></output>
+      <input id="mu" type="range" min="0.01" max="0.3" step="0.01" value="0.06">
+    </label>
+
+    <section id="kwel">
+      <h2>Kwel</h2>
+      <label class="check"><input id="kwel-aan" type="checkbox"> Rivier naast de polder (Mazure)</label>
+      <div id="paneel-kwel" hidden>
+        <p class="uitleg">Grondwater stroomt onder de dijk door en komt via de deklaag in de
+          polder omhoog. Een rivierpeil onder het polderpeil geeft wegzijging.</p>
+        <label>Rivierpeil t.o.v. polderpeil <output id="H-out"></output>
+          <input id="H" type="range" min="-2" max="5" step="0.1" value="2">
+        </label>
+        <label>Weerstand deklaag c <output id="c-out"></output>
+          <input id="c" type="range" min="50" max="3000" step="50" value="500">
+        </label>
+        <label>Doorlaatvermogen pakket kD <output id="kD-out"></output>
+          <input id="kD" type="range" min="50" max="3000" step="50" value="500">
+        </label>
+        <label>Dijkbreedte B <output id="B-out"></output>
+          <input id="B" type="range" min="10" max="100" step="5" value="30">
+        </label>
+        <dl id="kwel-uitkomst"></dl>
+      </div>
+      <label>Perceel in grafiek en getallen <output id="perceel-out"></output>
+        <input id="perceel" type="range" min="1" max="3" step="1" value="1">
+      </label>
+    </section>
+
+    <section id="tijd">
+      <div class="tabs" role="tablist">
+        <button id="tab-bui" type="button" role="tab" aria-selected="true">Na een bui</button>
+        <button id="tab-droog" type="button" role="tab" aria-selected="false">Droogte</button>
+        <button id="tab-weer" type="button" role="tab" aria-selected="false">Echt weer</button>
+      </div>
+
+      <div id="paneel-bui">
+        <p class="uitleg">Kraijenhoff van de Leur: eerst valt er een extra bui, daarna blijft
+          het droog. Schuif door de tijd of druk op afspelen.</p>
+        <label>Extra bui op dag 0 <output id="P-out"></output>
+          <input id="P" type="range" min="0" max="60" step="1" value="20">
+        </label>
+      </div>
+
+      <div id="paneel-droog" hidden>
+        <p class="uitleg">Weken zonder regen met verdamping. Vergelijk de huidige situatie met
+          een hoger slootpeil (stuw). De 3D-weergave toont de situatie met maatregel.</p>
+        <label>Verdampingsoverschot <output id="E-verd-out"></output>
+          <input id="E-verd" type="range" min="0.5" max="5" step="0.5" value="2">
+        </label>
+      </div>
+
+      <div id="paneel-weer" hidden>
+        <p class="uitleg">Echte neerslag en verdamping per dag (KNMI). De beginstand is de
+          stationaire spiegel bij q; die wordt per voorbeeld ingesteld.</p>
+        <label>Voorbeeld
+          <select id="weer"></select>
+        </label>
+        <p id="weer-tekst" class="uitleg"></p>
+      </div>
+
+      <div id="paneel-maatregel" hidden>
+        <label>Peilopzet (stuw) <output id="opzet-out"></output>
+          <input id="opzet" type="range" min="0" max="0.6" step="0.05" value="0.3">
+        </label>
+        <label class="check"><input id="aanvoer" type="checkbox" checked> Wateraanvoer naar de sloten</label>
+      </div>
+
+      <label>Tijd <output id="t-out"></output>
+        <input id="t" type="range" min="0" max="30" step="0.1" value="0">
+      </label>
+      <button id="speel" type="button">Afspelen</button>
+      <figure id="grafiek">
+        <figcaption id="grafiek-titel"></figcaption>
+        <div id="legenda"></div>
+        <svg id="regen-svg" viewBox="0 0 260 34" role="img" aria-label="Neerslag per dag" hidden></svg>
+        <svg id="grafiek-svg" viewBox="0 0 260 120" role="img"></svg>
+        <div id="tip" hidden></div>
+      </figure>
+      <dl id="tijd-uitkomst"></dl>
+    </section>
+
+    <details>
+      <summary>Weergave</summary>
+      <label>Aantal percelen <output id="N-out"></output>
+        <input id="N" type="range" min="1" max="8" step="1" value="3">
+      </label>
+      <label>Verticale overdrijving <output id="E-out"></output>
+        <input id="E" type="range" min="1" max="20" step="1" value="6">
+      </label>
+      <label>Doorzichtigheid bodem <output id="T-out"></output>
+        <input id="T" type="range" min="0" max="0.9" step="0.05" value="0.55">
+      </label>
+      <label class="check"><input id="regen" type="checkbox" checked> Regen</label>
+    </details>
+
+    <dl id="uitkomst">
+      <dt>Opbolling midden</dt><dd id="h-mid"></dd>
+      <dt>Ontwateringsdiepte</dt><dd id="ontw"></dd>
+      <dt>Max. slootafstand</dt><dd id="L-max"></dd>
+    </dl>
+    <dl id="volume">
+      <dt>Water in de grond</dt><dd id="v-tot"></dd>
+      <dt></dt><dd id="v-tot-mm" class="klein"></dd>
+      <dt>Afvoerbaar boven slootpeil</dt><dd id="v-afv"></dd>
+      <dt></dt><dd id="v-afv-mm" class="klein"></dd>
+    </dl>
+    <p id="status"></p>
+
+    <p class="noot">Stationair, Dupuit-Forchheimer, één K boven en onder slootpeil,
+      equivalente diepte d = D. Kraijenhoff van de Leur gelineariseerd met
+      transmissiviteit K·D; het startprofiel is de stationaire spiegel bij q. Droogte: eindige differenties, zonder
+      afname van de verdamping bij diepere grondwaterstanden. Kwel: Mazure, per perceel
+      uniform op de afstand van het perceelmidden tot de dijk. Volumes voor alle percelen samen
+      (perceellengte 80 m); de onverzadigde zone is niet meegeteld. Zie <code>notities/hooghoudt-overdracht.md</code>.</p>
+  </aside>
+<script>
+  window.addEventListener("error", (e) => {
+    const el = document.getElementById("scene");
+    if (el && !el.querySelector("canvas")) {
+      el.innerHTML = '<p style="position:absolute;right:16px;bottom:16px;max-width:420px;color:var(--fout)">'
+        + "3D-weergave kon niet starten: " + String(e.message).replace(/</g, "&lt;") + "</p>";
+    }
+  });
+</script>
+<script type="module">
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.170.0/+esm";
+import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js/+esm";
+
+// Grondwaterstand tussen twee evenwijdige sloten (Dupuit-Forchheimer / Hooghoudt).
+// JS-versie van apps/hooghoudt/hooghoudt.py; eenheden in meters en dagen.
+
+const GRONDSOORTEN = { // typische doorlatendheid K (m/dag)
+  "Zware klei": 0.05,
+  "Zavel / lichte klei": 0.3,
+  "Fijn zand": 1.0,
+  "Grof zand": 5.0,
+};
+
+// Opbolling h(x) boven slootpeil (m): sqrt(D^2 + q/K*(L*x - x^2)) - D.
+function opbolling(x, L, q, K, D) {
+  // bij wegzijging (q < 0) kan de spiegel tot op de ondoorlatende laag zakken
+  return Math.sqrt(Math.max(D ** 2 + (q / K) * (L * x - x ** 2), 0)) - D;
+}
+
+// Opbolling midden tussen de sloten volgens Hooghoudt (1940):
+// L^2 = (8*K_b*d*h + 4*K_a*h^2) / q, opgelost naar h.
+function opbollingMidden(L, q, Ka, Kb, d) {
+  const a = 4 * Ka, b = 8 * Kb * d, c = -q * L ** 2;
+  return (-b + Math.sqrt(b ** 2 - 4 * a * c)) / (2 * a);
+}
+
+// Maximale slootafstand L (m) waarbij de opbolling midden h blijft.
+function slootafstand(h, q, Ka, Kb, d) {
+  return Math.sqrt((8 * Kb * d * h + 4 * Ka * h ** 2) / q);
+}
+
+const BODEMWATER = { // typische totale porositeit n en bergingscoëfficiënt mu (-)
+  "Zware klei": [0.50, 0.03],
+  "Zavel / lichte klei": [0.45, 0.06],
+  "Fijn zand": [0.38, 0.12],
+  "Grof zand": [0.35, 0.22],
+};
+
+// Oppervlak (m2 per m slootlengte) tussen ondoorlatende laag en grondwaterspiegel:
+// exacte integraal van y(x) over 0..L, met a = q/K en R^2 = D^2/a + L^2/4.
+function verzadigdeDoorsnede(L, q, K, D) {
+  const a = q / K;
+  const R2 = D ** 2 / a + L ** 2 / 4;
+  return (L * D) / 2 + Math.sqrt(a) * R2 * Math.asin(L / (2 * Math.sqrt(R2)));
+}
+
+// Gemiddelde opbolling boven slootpeil over het perceel (m).
+function gemiddeldeOpbolling(L, q, K, D) {
+  return verzadigdeDoorsnede(L, q, K, D) / L - D;
+}
+
+// ---------- Kraijenhoff van de Leur (niet-stationair) ----------
+// Gelineariseerd: mu * dh/dt = K*D * d2h/dx2 + R, h = 0 bij de sloten.
+// Oplossing als sinusreeks h = som b_n sin(n*pi*x/L) (alleen oneven n bij een
+// symmetrisch profiel); elke term zakt uit met tijdconstante j / n^2.
+
+// Reservoircoëfficiënt j (dagen).
+function reservoirCoefficient(L, K, D, mu) {
+  return (mu * L ** 2) / (Math.PI ** 2 * K * D);
+}
+
+// Simuleer vanaf beginprofiel h0(x) met neerslagoverschot R(t) (m/dag).
+// Geeft per tijdstap de reekscoëfficiënten b, de gemiddelde opbolling en de afvoer.
+function kraijenhoff(h0, L, K, D, mu, regen, dt, stappen, termen = 60) {
+  const j = reservoirCoefficient(L, K, D, mu);
+  const n = Array.from({ length: termen }, (_, i) => 2 * i + 1);
+
+  // Fourier-coëfficiënten van het beginprofiel (Simpson)
+  const m = 800, dx = L / m;
+  let b = n.map((k) => {
+    let som = 0;
+    for (let i = 0; i <= m; i++) {
+      const w = i === 0 || i === m ? 1 : i % 2 ? 4 : 2;
+      som += w * h0(i * dx) * Math.sin((k * Math.PI * i * dx) / L);
+    }
+    return ((2 / L) * som * dx) / 3;
+  });
+  const gem = (b) => b.reduce((s, bk, i) => s + (bk * 2) / (n[i] * Math.PI), 0);
+
+  const uit = { t: [0], b: [b], hGem: [gem(b)], afvoer: [NaN], regen: [regen(0)], j };
+  for (let s = 1; s <= stappen; s++) {
+    const R = regen((s - 0.5) * dt);
+    b = b.map((bk, i) => {
+      const lam = n[i] ** 2 / j, e = Math.exp(-lam * dt);
+      const F = (4 * R) / (n[i] * Math.PI * mu);
+      return bk * e + (F / lam) * (1 - e);
+    });
+    const h = gem(b);
+    uit.t.push(s * dt);
+    uit.b.push(b);
+    uit.hGem.push(h);
+    uit.regen.push(R);
+    uit.afvoer.push(R - (mu * (h - uit.hGem[s - 1])) / dt); // waterbalans
+  }
+  uit.afvoer[0] = uit.afvoer[1];
+  return uit;
+}
+
+// Opbolling op x uit reekscoëfficiënten b.
+function reeksProfiel(b, x, L) {
+  return b.reduce((s, bk, i) => s + bk * Math.sin(((2 * i + 1) * Math.PI * x) / L), 0);
+}
+
+// ---------- Droogte en peilbeheer (eindige differenties) ----------
+// Zelfde vergelijking als Kraijenhoff, mu * dh/dt = T * d2h/dx2 + R, maar numeriek
+// (impliciet), zodat de sloot kan wisselen tussen afvoeren en aanvoeren:
+//   aanvoer = true : slootpeil vast op `peil` (sloot voert af én levert water)
+//   aanvoer = false: sloot voert alleen af als het grondwater boven `peil` staat,
+//                    anders geen uitwisseling (stuw zonder wateraanvoer)
+// T = K * (D + peil). Water boven maaiveld stroomt af; de spiegel zakt niet onder
+// de ondoorlatende laag. h is t.o.v. het oorspronkelijke slootpeil.
+function droogte(h0, { L, K, D, mu, M }, { R, peil = 0, aanvoer = false, dagen = 90, dt = 0.1, knopen = 100 }) {
+  const dx = L / knopen;
+  const T = K * Math.max(D + peil, 0.1);
+  const r = (T * dt) / (mu * dx * dx);
+  let h = Float64Array.from({ length: knopen + 1 }, (_, i) => h0(i * dx));
+  const gem = (h) => {
+    let s = 0;
+    for (let i = 0; i < knopen; i++) s += (h[i] + h[i + 1]) / 2;
+    return s / knopen;
+  };
+  const stappen = Math.round(dagen / dt);
+  const uit = { t: [0], h: [h], hGem: [gem(h)], sloot: [NaN], dx };
+
+  // tridiagonaal stelsel (Thomas) voor de impliciete stap
+  const a = new Float64Array(knopen + 1), b = new Float64Array(knopen + 1);
+  const c = new Float64Array(knopen + 1), d = new Float64Array(knopen + 1);
+  for (let s = 1; s <= stappen; s++) {
+    const Rs = R((s - 0.5) * dt);
+    const vast = aanvoer || h[1] > peil; // sloot doet mee als randvoorwaarde
+    for (let i = 0; i <= knopen; i++) {
+      a[i] = -r; b[i] = 1 + 2 * r; c[i] = -r; d[i] = h[i] + (Rs * dt) / mu;
+    }
+    if (vast) {
+      a[0] = 0; b[0] = 1; c[0] = 0; d[0] = peil;
+      a[knopen] = 0; b[knopen] = 1; c[knopen] = 0; d[knopen] = peil;
+    } else { // geen stroming over de rand: spiegelpunt
+      c[0] = -2 * r; a[knopen] = -2 * r;
+    }
+    for (let i = 1; i <= knopen; i++) {
+      const m = a[i] / b[i - 1];
+      b[i] -= m * c[i - 1];
+      d[i] -= m * d[i - 1];
+    }
+    const nieuw = new Float64Array(knopen + 1);
+    nieuw[knopen] = d[knopen] / b[knopen];
+    for (let i = knopen - 1; i >= 0; i--) nieuw[i] = (d[i] - c[i] * nieuw[i + 1]) / b[i];
+    // Afkappen: boven maaiveld stroomt het water oppervlakkig naar de sloot; onder de
+    // ondoorlatende laag is het pakket leeg en stopt de verdamping uit het grondwater.
+    const ruw = gem(nieuw);
+    const plas = new Float64Array(knopen + 1);
+    for (let i = 0; i <= knopen; i++) {
+      plas[i] = Math.max(nieuw[i] - M, 0);
+      nieuw[i] = Math.min(Math.max(nieuw[i], -D), M);
+    }
+
+    const hg = gem(nieuw);
+    uit.t.push(s * dt);
+    uit.h.push(nieuw);
+    uit.hGem.push(hg);
+    // + = afvoer naar de sloot, - = aanvoer uit de sloot (m/dag)
+    uit.sloot.push(Rs - (mu * (ruw - uit.hGem[s - 1])) / dt + (mu * gem(plas)) / dt);
+    h = nieuw;
+  }
+  uit.sloot[0] = uit.sloot[1];
+  return uit;
+}
+
+// Spiegel op x uit een rij knoopwaarden (lineair interpoleren).
+function knoopProfiel(h, x, dx) {
+  const i = Math.min(Math.floor(x / dx), h.length - 2);
+  const f = x / dx - i;
+  return h[i] * (1 - f) + h[i + 1] * f;
+}
+
+// ---------- Kwel en wegzijging (Mazure) ----------
+// Rivier (peil H) die in direct contact staat met een watervoerend pakket (kD) onder
+// een slecht doorlatende deklaag (weerstand c). Onder de dijk (breedte B) geen lekkage,
+// in de polder (peil hp) lekt het pakket door de deklaag omhoog:
+//   phi(x) = hp + (phi1 - hp) * exp(-x / lambda),  lambda = sqrt(kD * c)
+//   phi1 - hp = (H - hp) * lambda / (B + lambda)   (continuïteit bij de dijkteen)
+//   kwel(x) = (phi(x) - hp) / c,  totaal Q = kD * (H - hp) / (B + lambda)
+// x vanaf de binnenteen van de dijk. Negatieve kwel = wegzijging.
+function mazure(H, hp, kD, c, B) {
+  const lambda = Math.sqrt(kD * c);
+  const phi1 = hp + ((H - hp) * lambda) / (B + lambda);
+  const phi = (x) => hp + (phi1 - hp) * Math.exp(-x / lambda);
+  return { lambda, phi1, phi, kwel: (x) => (phi(x) - hp) / c, Q: (kD * (H - hp)) / (B + lambda) };
+}
+
+// Echte weerreeksen (KNMI daggegevens), gemaakt door haal_weer.py: P = neerslag,
+// E = referentieverdamping (Makkink), beide in mm/dag.
+const WEER = [{"naam":"Droogte 2018","station":"De Bilt (260)","start":"20180401","eind":"20180930","q0":1.0,"tekst":"Een van de droogste zomers sinds het begin van de metingen: weinig regen en veel zon.","P":[0.7,1.1,2.5,4.9,2.4,0.0,0.0,0.0,0.0,0.0,2.1,0.2,0.0,1.0,6.6,0.1,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.1,5.2,5.1,0.1,0.5,19.6,27.2,9.2,0.2,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.7,0.0,0.0,2.4,0.0,0.0,0.1,0.0,0.0,0.0,0.0,0.0,0.8,1.5,0.6,0.0,0.0,1.9,0.5,14.8,0.1,3.7,4.7,1.2,0.0,0.0,0.0,0.0,0.0,5.0,0.0,0.0,0.0,0.0,0.0,0.9,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.1,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,5.2,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.3,3.2,8.5,6.6,0.1,0.0,10.6,0.6,0.0,1.3,4.6,0.0,0.0,0.0,0.0,0.0,2.2,5.6,16.6,1.3,0.2,0.0,6.6,0.0,0.0,0.0,0.0,0.0,0.0,4.4,5.7,5.4,0.0,0.0,0.0,0.0,1.1,0.0,0.0,0.2,0.0,0.0,0.0,0.0,0.0,8.3,6.2,9.7,0.5,0.0,0.0,0.0,0.0,0.0,0.0],"E":[0.5,1.0,1.9,1.1,1.3,2.8,2.8,2.9,1.5,2.1,1.6,1.0,1.4,1.8,1.4,2.9,3.2,3.7,4.0,3.9,3.7,3.4,2.8,1.2,2.0,2.7,1.8,1.3,0.7,0.8,2.6,3.7,3.8,4.0,4.3,4.6,4.7,4.7,4.4,2.4,3.8,3.4,1.1,4.1,4.7,3.1,4.0,2.7,1.6,4.5,4.2,2.8,2.4,1.8,4.4,4.9,2.2,4.7,3.7,4.1,3.2,2.0,1.3,2.8,3.0,3.6,4.9,5.3,0.9,4.3,4.3,4.5,1.6,2.9,1.9,4.3,3.0,1.6,1.3,1.2,3.4,3.1,2.1,2.7,2.2,4.0,4.9,4.7,5.0,5.3,5.6,5.7,5.6,5.4,4.7,4.9,3.8,4.4,5.1,2.3,2.0,3.1,4.7,4.6,5.1,5.1,5.1,4.7,3.8,3.8,4.6,4.9,4.3,5.0,4.3,3.2,5.1,5.4,2.9,3.0,4.4,3.9,4.2,4.8,4.9,4.0,4.3,4.9,4.7,2.3,1.4,3.0,3.5,2.8,1.6,2.7,1.9,2.6,3.3,2.0,1.7,1.8,2.9,3.4,1.4,2.8,2.2,2.6,1.3,2.0,1.2,3.0,1.5,2.8,2.9,1.4,2.4,1.7,0.8,2.5,1.8,2.5,1.5,1.7,0.7,2.8,2.3,1.8,1.9,2.6,2.9,2.4,2.2,1.6,0.9,0.4,1.9,2.2,2.2,2.3,1.8,1.8,1.7]},{"naam":"Droogte 2022","station":"De Bilt (260)","start":"20220401","eind":"20220930","q0":1.0,"tekst":"Opnieuw een droge, warme zomer met een groot neerslagtekort.","P":[4.9,0.0,0.0,20.7,3.2,3.4,19.2,0.4,5.4,0.0,0.0,0.0,0.1,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,3.8,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,2.0,0.0,0.0,0.0,0.0,1.1,0.0,0.0,22.6,19.0,0.0,0.0,20.0,1.4,0.3,0.3,0.3,0.2,0.5,0.0,3.6,1.0,0.0,0.0,0.0,25.9,11.4,0.0,9.6,1.1,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.8,0.0,0.0,0.0,0.0,20.1,5.2,0.0,6.3,0.0,0.0,9.5,0.0,0.0,0.6,0.0,0.0,0.0,0.6,0.0,0.0,0.0,0.0,0.5,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.3,8.0,0.0,0.0,0.0,0.0,3.9,0.0,0.0,0.0,0.0,1.9,1.9,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,42.8,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.2,10.0,5.9,13.4,1.6,4.2,0.0,0.0,0.0,0.0,2.6,7.9,5.3,14.7,1.8,0.0,0.0,0.0,0.8,7.4,0.0,17.4,9.2,0.0,0.0,5.6],"E":[1.2,1.2,1.5,0.3,0.7,0.6,1.1,1.4,1.9,2.2,2.8,2.7,1.5,2.9,1.9,3.4,3.6,3.3,3.4,3.6,3.5,3.1,3.1,3.5,0.7,3.1,2.8,3.5,2.1,1.4,2.8,3.8,2.0,3.5,2.3,3.0,3.4,4.1,4.2,2.4,4.0,3.8,3.2,4.1,4.8,2.6,3.3,4.1,2.1,1.8,2.9,4.4,1.6,2.5,2.7,3.4,3.7,3.5,2.1,2.3,2.4,3.6,4.3,5.0,3.7,1.3,1.8,3.0,1.6,4.2,2.7,5.1,4.6,3.9,4.3,5.3,5.0,5.1,4.9,1.6,3.8,4.1,5.5,5.3,2.6,2.7,3.0,1.6,4.9,4.3,3.6,4.4,4.2,3.5,4.0,3.5,3.5,2.4,4.7,3.5,2.7,3.1,4.0,4.8,4.5,3.9,4.9,4.7,5.1,5.5,4.3,0.9,3.2,4.5,5.0,3.0,2.6,3.4,4.1,4.4,3.7,1.2,3.5,4.4,4.8,3.5,3.3,4.3,4.2,2.9,4.5,4.7,4.8,4.7,4.7,4.5,2.2,3.1,1.3,3.0,1.9,3.2,2.9,3.5,3.3,3.7,3.7,1.2,1.9,3.3,2.4,3.3,3.6,3.7,3.4,3.5,2.9,2.8,3.2,3.0,2.0,1.1,2.2,2.3,2.8,2.3,1.4,1.6,1.7,2.2,0.6,1.6,1.4,2.1,2.3,1.2,0.5,1.9,0.5,0.6,1.4,1.8,2.0]},{"naam":"Limburg juli 2021","station":"Maastricht (380)","start":"20210615","eind":"20210831","q0":1.0,"tekst":"Extreme regen half juli 2021 in Zuid-Limburg, met overstromingen langs de Geul en de Maas.","P":[0.0,0.0,0.0,0.0,6.3,6.1,12.2,8.6,0.0,0.0,0.0,0.0,17.2,4.4,87.2,13.6,1.3,0.0,6.2,5.2,4.1,0.1,0.0,0.0,0.0,6.3,0.0,1.0,24.4,40.5,13.1,2.3,0.0,0.0,0.0,0.0,0.0,0.0,0.0,4.6,0.2,2.3,5.0,5.6,0.3,0.0,0.0,7.2,2.0,8.2,0.0,0.4,17.5,2.2,3.4,14.2,7.6,0.0,0.0,0.0,0.0,0.0,3.3,5.0,1.0,0.0,1.7,7.4,1.5,4.3,0.0,0.0,4.1,0.8,0.4,6.6,1.1,0.0],"E":[5.1,5.4,4.9,4.8,5.0,4.2,1.7,0.9,1.4,2.7,4.1,4.7,2.5,3.2,3.9,1.2,1.5,4.5,2.7,2.6,2.0,3.1,3.4,2.4,3.6,2.9,3.6,2.4,0.7,0.3,0.6,1.5,4.2,5.0,4.1,4.7,4.7,3.7,4.7,1.1,4.3,3.4,2.5,3.6,3.3,3.4,2.5,1.9,2.1,1.5,3.0,2.7,2.5,2.7,2.5,2.4,2.8,3.4,3.4,3.4,4.3,3.6,1.1,1.0,1.3,1.3,2.1,3.4,1.7,1.4,3.5,3.6,1.7,1.8,1.6,0.5,1.2,1.8]},{"naam":"Natte winter 2023-2024","station":"De Bilt (260)","start":"20231001","eind":"20240331","q0":0.5,"tekst":"Een van de natste winterhalfjaren ooit gemeten: maandenlang regen.","P":[0.0,0.0,4.8,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.2,36.7,36.7,7.8,11.1,0.3,0.0,11.3,2.1,19.4,4.4,3.3,3.6,3.8,15.7,0.1,11.0,6.7,5.6,16.8,18.5,0.9,9.1,7.1,10.7,6.2,0.9,2.0,20.4,3.7,4.5,6.1,0.1,6.9,13.2,3.7,3.7,0.0,12.8,6.1,8.3,0.2,0.2,1.0,4.9,1.9,1.5,16.3,4.9,1.8,0.0,0.0,0.0,2.2,3.4,2.6,0.2,0.0,0.6,7.7,9.0,5.4,11.0,2.1,0.0,0.0,0.0,0.0,0.0,12.4,1.9,8.9,9.6,3.5,18.9,17.1,2.3,3.4,0.8,3.8,0.0,2.8,10.3,24.0,12.4,10.6,5.5,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.6,2.9,4.3,0.8,0.0,0.0,1.3,0.0,0.2,5.0,4.9,1.1,1.5,5.5,0.0,0.0,0.0,0.6,3.5,2.0,0.0,1.3,0.1,0.2,14.8,2.6,12.2,6.1,0.5,2.9,0.1,1.8,8.1,11.0,3.2,0.0,14.2,1.7,0.0,6.1,8.5,7.8,1.0,0.9,1.6,0.0,0.0,13.9,0.7,0.2,0.0,0.0,1.5,0.0,0.0,0.0,0.0,0.0,10.5,1.8,1.4,0.0,1.0,1.2,5.5,0.0,0.0,0.0,0.0,2.1,2.0,15.4,0.0,0.0,0.2,3.5,0.4,0.9,9.7],"E":[2.2,1.8,0.9,1.2,1.0,1.7,1.6,0.8,0.9,1.7,0.6,0.2,0.4,1.1,1.1,1.0,1.5,1.1,0.7,0.2,0.6,1.2,0.6,0.5,0.2,0.5,0.3,0.6,0.6,0.5,0.8,0.5,0.4,0.7,0.3,0.3,0.7,0.8,0.5,0.6,0.2,0.6,0.4,0.2,0.3,0.8,0.2,0.5,0.1,0.4,0.4,0.2,0.4,0.4,0.4,0.4,0.2,0.1,0.5,0.3,0.2,0.3,0.3,0.3,0.2,0.1,0.3,0.1,0.1,0.1,0.3,0.2,0.2,0.2,0.3,0.2,0.1,0.3,0.2,0.0,0.2,0.1,0.1,0.2,0.0,0.2,0.3,0.1,0.3,0.3,0.2,0.2,0.2,0.1,0.2,0.2,0.1,0.1,0.3,0.2,0.4,0.4,0.2,0.2,0.1,0.2,0.3,0.5,0.2,0.5,0.5,0.4,0.1,0.6,0.5,0.5,0.3,0.5,0.7,0.7,0.6,0.3,0.2,0.7,0.3,0.3,0.2,0.4,0.3,0.5,0.2,0.4,0.6,0.3,0.6,0.6,0.2,0.6,0.3,0.6,0.2,0.3,0.7,0.4,0.4,0.4,0.4,0.7,0.4,1.3,0.6,0.2,0.9,1.5,1.4,1.6,0.3,1.6,1.5,1.7,1.3,1.0,0.2,0.7,0.5,2.3,1.1,1.0,1.0,1.6,1.5,1.8,1.0,0.5,1.6,0.9,2.2,1.3,1.3,1.2,1.7,0.5,1.6]}];
+
+
+// Geometrie van de polder (m). Horizontaal ware schaal, verticaal x E.
+const SLOOTBREEDTE = 3;
+const PERCEELLENGTE = 80; // langs de sloten
+const SLOOTDIEPTE = 0.5;  // waterdiepte onder slootpeil
+const BASISDIKTE = 3;     // ondoorlatende laag, in scène-eenheden
+const STAPPEN = 80;       // punten per grondwaterprofiel
+const MODI = {            // tijdstap en duur per scenario (dagen)
+  bui: { dt: 0.05, eind: 30 },
+  droog: { dt: 0.1, eind: 90 },
+  weer: { dt: 0.1, eind: WEER[0].P.length },
+};
+let modus = "bui";
+
+const kleur = {
+  bodem: 0x8b6a4a,
+  gras: 0x6aa84f,
+  verzadigd: 0x3b7fc4,
+  spiegel: 0x0b3d75,
+  sloot: 0x2f6fa8,
+  plas: 0x5fb3ea,
+  basis: 0x4a4a4a,
+  regen: 0x9fc6e8,
+  stuw: 0x5a4632,
+  dijk: 0x7fa65a,
+  rivier: 0x3a7bbf,
+  pakket: 0xc9b27c,
+  stijghoogte: 0xd2453b,
+};
+const RIVIERBREEDTE = 40;
+
+// ---------- invoer ----------
+
+const $ = (id) => document.getElementById(id);
+const invoer = Object.fromEntries(["K", "L", "q", "D", "M", "n", "mu", "P", "E-verd", "opzet", "H", "c", "kD", "B", "perceel", "N", "E", "T"].map((k) => [k, $(k)]));
+
+const EIGEN = "Eigen waarde";
+for (const naam of [...Object.keys(GRONDSOORTEN), EIGEN]) {
+  $("grond").add(new Option(naam, naam));
+}
+function kiesGrond(naam) {
+  $("grond").value = naam;
+  if (!(naam in GRONDSOORTEN)) return;
+  invoer.K.value = Math.log10(GRONDSOORTEN[naam]);
+  [invoer.n.value, invoer.mu.value] = BODEMWATER[naam];
+}
+kiesGrond("Zavel / lichte klei");
+
+$("grond").addEventListener("change", () => {
+  kiesGrond($("grond").value);
+  bijwerken();
+});
+invoer.K.addEventListener("input", () => {
+  const K = 10 ** Number(invoer.K.value);
+  const naam = Object.keys(GRONDSOORTEN).find((n) => Math.abs(Math.log10(GRONDSOORTEN[n] / K)) < 0.005);
+  $("grond").value = naam ?? EIGEN;
+});
+for (const el of Object.values(invoer)) el.addEventListener("input", bijwerken);
+$("t").addEventListener("input", toon);
+$("aanvoer").addEventListener("change", bijwerken);
+$("kwel-aan").addEventListener("change", () => {
+  $("paneel-kwel").hidden = !$("kwel-aan").checked;
+  bijwerken();
+});
+const TABS = [["tab-bui", "bui"], ["tab-droog", "droog"], ["tab-weer", "weer"]];
+for (const [knop, m] of TABS) $(knop).addEventListener("click", () => kiesModus(m));
+
+WEER.forEach((w, i) => $("weer").add(new Option(w.naam, i)));
+const datum = (d) => new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}`)
+  .toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric" });
+// Tekst en duur van het gekozen weervoorbeeld; in het tabblad Echt weer ook de beginstand (q).
+function kiesWeer() {
+  const w = WEER[Number($("weer").value)];
+  MODI.weer.eind = w.P.length;
+  const som = (a) => Math.round(a.reduce((x, y) => x + y, 0));
+  $("weer-tekst").textContent = `${w.tekst} ${w.station}, ${datum(w.start)} t/m ${datum(w.eind)}: `
+    + `${som(w.P)} mm neerslag, ${som(w.E)} mm verdamping.`;
+  if (modus === "weer") kiesModus("weer");
+}
+$("weer").addEventListener("change", kiesWeer);
+$("regen").addEventListener("change", () => (regen.visible = $("regen").checked));
+
+function parameters() {
+  return {
+    K: GRONDSOORTEN[$("grond").value] ?? 10 ** Number(invoer.K.value),
+    L: Number(invoer.L.value),
+    q: Number(invoer.q.value) / 1000, // mm/dag -> m/dag
+    D: Number(invoer.D.value),
+    M: Number(invoer.M.value),
+    n: Number(invoer.n.value),
+    mu: Number(invoer.mu.value),
+    P: Number(invoer.P.value) / 1000, // mm -> m
+    Everd: Number(invoer["E-verd"].value) / 1000, // mm/dag -> m/dag
+    opzet: Number(invoer.opzet.value),
+    aanvoer: $("aanvoer").checked,
+    kwelAan: $("kwel-aan").checked,
+    H: Number(invoer.H.value),
+    c: Number(invoer.c.value),
+    kD: Number(invoer.kD.value),
+    B: Number(invoer.B.value),
+    perceel: Math.min(Number(invoer.perceel.value), Number(invoer.N.value)) - 1,
+    N: Number(invoer.N.value),
+    E: Number(invoer.E.value),
+    T: Number(invoer.T.value),
+  };
+}
+
+const fmt = (v, d = 2) => v.toLocaleString("nl-NL", { minimumFractionDigits: d, maximumFractionDigits: d });
+
+// ---------- scène ----------
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+$("scene").appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color();
+scene.fog = new THREE.Fog(0x000000, 400, 1200);
+
+// Achtergrond volgt het licht/donker-thema van de pagina (CSS-variabele --bg).
+function themaKleur() {
+  const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+  scene.background.set(bg);
+  scene.fog.color.set(bg);
+}
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", themaKleur);
+new MutationObserver(themaKleur).observe(document.documentElement, { attributeFilter: ["data-theme"] });
+themaKleur();
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.5, 3000);
+camera.position.set(-70, 70, 120);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI * 0.49;
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7f6a, 1.6));
+const zon = new THREE.DirectionalLight(0xffffff, 1.6);
+zon.position.set(-80, 150, 100);
+scene.add(zon);
+
+const materiaal = {
+  bodem: new THREE.MeshStandardMaterial({ color: kleur.bodem, roughness: 1, transparent: true, depthWrite: false }),
+  gras: new THREE.MeshStandardMaterial({ color: kleur.gras, roughness: 1, transparent: true, depthWrite: false, side: THREE.DoubleSide }),
+  verzadigd: new THREE.MeshStandardMaterial({ color: kleur.verzadigd, roughness: 0.8 }),
+  sloot: new THREE.MeshStandardMaterial({ color: kleur.sloot, roughness: 0.2, transparent: true, opacity: 0.85 }),
+  plas: new THREE.MeshStandardMaterial({ color: kleur.plas, roughness: 0.1, transparent: true, opacity: 0.85 }),
+  basis: new THREE.MeshStandardMaterial({ color: kleur.basis, roughness: 1 }),
+  stuw: new THREE.MeshStandardMaterial({ color: kleur.stuw, roughness: 0.9 }),
+  dijk: new THREE.MeshStandardMaterial({ color: kleur.dijk, roughness: 1 }),
+  rivier: new THREE.MeshStandardMaterial({ color: kleur.rivier, roughness: 0.2, transparent: true, opacity: 0.85 }),
+  pakket: new THREE.MeshStandardMaterial({ color: kleur.pakket, roughness: 1 }),
+  stijghoogte: new THREE.LineDashedMaterial({ color: kleur.stijghoogte, dashSize: 2, gapSize: 1.2 }),
+  spiegel: new THREE.LineBasicMaterial({ color: kleur.spiegel }),
+};
+
+let polder = new THREE.Group();
+scene.add(polder);
+
+// Vorm in het (x, y)-vlak, geëxtrudeerd over de perceellengte (z), gecentreerd op z = 0.
+function blok(punten, mat) {
+  const vorm = new THREE.Shape(punten.map(([x, y]) => new THREE.Vector2(x, y)));
+  const geo = new THREE.ExtrudeGeometry(vorm, { depth: PERCEELLENGTE, bevelEnabled: false });
+  geo.translate(0, 0, -PERCEELLENGTE / 2);
+  return new THREE.Mesh(geo, mat);
+}
+
+function doos(x0, x1, y0, y1, mat) {
+  return blok([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], mat);
+}
+
+// Deel van het perceel waar de spiegel boven maaiveld zou komen: [x1, x2] of null.
+function plasGrenzen(h, { L, M }) {
+  const n = 400;
+  let x1 = null, x2 = null;
+  for (let i = 0; i <= n; i++) {
+    const x = (L * i) / n;
+    if (h(x) > M) { x1 ??= x; x2 = x; }
+  }
+  return x1 === null ? null : [x1, x2];
+}
+
+// Oppervlak verzadigde zone (m2 per m slootlengte), spiegel afgekapt op maaiveld (Simpson).
+function verzadigd(h, { L, D, M }) {
+  const n = 400, dx = L / n;
+  let som = 0;
+  for (let i = 0; i <= n; i++) {
+    const y = D + Math.min(Math.max(h(i * dx), -D), M);
+    som += y * (i === 0 || i === n ? 1 : i % 2 ? 4 : 2);
+  }
+  return (som * dx) / 3;
+}
+
+function perceel(x0, p, h, plas) {
+  const { L, D, M, E } = p;
+  const xs = Array.from({ length: STAPPEN + 1 }, (_, i) => (L * i) / STAPPEN);
+  if (plas) xs.push(...plas);
+  xs.sort((a, b) => a - b);
+
+  const top = xs.map((x) => [x0 + x, Math.min(Math.max(h(x), -D), M) * E]);
+  const groep = new THREE.Group();
+
+  // verzadigde zone: van ondoorlatende laag tot grondwaterspiegel
+  groep.add(blok([[x0, -D * E], [x0 + L, -D * E], ...top.slice().reverse()], materiaal.verzadigd));
+  // onverzadigde zone: van grondwaterspiegel tot maaiveld
+  groep.add(blok([...top, [x0 + L, M * E], [x0, M * E]], materiaal.bodem));
+
+  // gras op maaiveld
+  const gras = new THREE.Mesh(new THREE.PlaneGeometry(L, PERCEELLENGTE), materiaal.gras);
+  gras.rotation.x = -Math.PI / 2;
+  gras.position.set(x0 + L / 2, M * E + 0.02, 0);
+  groep.add(gras);
+
+  // grondwaterspiegel als lijn op voor- en achterkant
+  for (const z of [PERCEELLENGTE / 2 + 0.05, -PERCEELLENGTE / 2 - 0.05]) {
+    const geo = new THREE.BufferGeometry().setFromPoints(top.map(([x, y]) => new THREE.Vector3(x, y, z)));
+    groep.add(new THREE.Line(geo, materiaal.spiegel));
+  }
+
+  // plas waar het grondwater boven maaiveld zou komen
+  if (plas) {
+    groep.add(doos(x0 + plas[0], x0 + plas[1], M * E, M * E + 0.15 * E, materiaal.plas));
+  }
+  return groep;
+}
+
+// Sloot met waterstand `niveau` (m t.o.v. oorspronkelijk slootpeil); valt droog onder de bodem.
+// Met `stuw` (bovenkant in m) staat er een stuw dwars in de sloot.
+function sloot(x0, { D, E }, niveau, stuw) {
+  const bodem = -Math.min(SLOOTDIEPTE, D * 0.5);
+  const groep = new THREE.Group();
+  groep.add(doos(x0, x0 + SLOOTBREEDTE, -D * E, bodem * E, materiaal.verzadigd));
+  if (niveau > bodem + 0.01) groep.add(doos(x0, x0 + SLOOTBREEDTE, bodem * E, niveau * E, materiaal.sloot));
+  if (stuw !== null) {
+    const geo = new THREE.BoxGeometry(SLOOTBREEDTE + 0.6, (stuw - bodem + 0.1) * E, 0.8);
+    const blok = new THREE.Mesh(geo, materiaal.stuw);
+    blok.position.set(x0 + SLOOTBREEDTE / 2, ((bodem + stuw + 0.1) / 2) * E, PERCEELLENGTE / 2 - 6);
+    groep.add(blok);
+  }
+  return groep;
+}
+
+// Afstand van het midden van perceel i tot de binnenteen van de dijk (links van de polder).
+const perceelAfstand = (i, L) => SLOOTBREEDTE + i * (L + SLOOTBREEDTE) + L / 2;
+
+// hs[i]: spiegel van perceel i; niveaus[i]: waterstand in sloot i; kw: Mazure-resultaat of null.
+function bouwPolder(p, hs, niveaus, stuw = null, kw = null) {
+  scene.remove(polder);
+  polder.traverse((o) => o.geometry?.dispose());
+  polder = new THREE.Group();
+
+  const breedte = p.N * (p.L + SLOOTBREEDTE) + SLOOTBREEDTE;
+  const start = -breedte / 2;
+  const plassen = hs.map((h) => plasGrenzen(h, p));
+
+  for (let i = 0; i <= p.N; i++) {
+    const xs = start + i * (p.L + SLOOTBREEDTE);
+    polder.add(sloot(xs, p, niveaus[i], stuw));
+    if (i < p.N) polder.add(perceel(xs + SLOOTBREEDTE, p, hs[i], plassen[i]));
+  }
+  const onder = -p.D * p.E;
+  if (!kw) {
+    polder.add(doos(start, -start, onder - BASISDIKTE, onder, materiaal.basis));
+  } else {
+    // deklaag met daaronder het watervoerend pakket; links de dijk en de rivier
+    const dijkVoet = start - p.B, rivierRand = dijkVoet - RIVIERBREEDTE;
+    const pakketOnder = onder - BASISDIKTE - 8;
+    polder.add(doos(start - p.B, -start, onder - BASISDIKTE, onder, materiaal.basis));
+    polder.add(doos(rivierRand, -start, pakketOnder, onder - BASISDIKTE, materiaal.pakket));
+    polder.add(doos(start - p.B, start, onder, 0, materiaal.verzadigd));
+    const kruin = (Math.max(p.H, p.M) + 0.8) * p.E;
+    polder.add(blok([[dijkVoet, 0], [start, 0], [start - p.B * 0.3, kruin], [dijkVoet + p.B * 0.3, kruin]], materiaal.dijk));
+    const rivierBodem = onder - BASISDIKTE;
+    if (p.H * p.E > rivierBodem) polder.add(doos(rivierRand, dijkVoet, rivierBodem, p.H * p.E, materiaal.rivier));
+
+    // stijghoogte in het pakket als rode stippellijn op de voorkant
+    const punten = [];
+    for (let x = 0; x <= breedte; x += breedte / 60) {
+      punten.push(new THREE.Vector3(start + x, kw.phi(x) * p.E, PERCEELLENGTE / 2 + 0.3));
+    }
+    punten.unshift(new THREE.Vector3(dijkVoet, p.H * p.E, PERCEELLENGTE / 2 + 0.3));
+    const lijn = new THREE.Line(new THREE.BufferGeometry().setFromPoints(punten), materiaal.stijghoogte);
+    lijn.computeLineDistances();
+    polder.add(lijn);
+  }
+
+  materiaal.bodem.opacity = 1 - p.T;
+  materiaal.gras.opacity = 1 - p.T;
+  scene.add(polder);
+  return { breedte, plassen };
+}
+
+// Camera op dezelfde kijkrichting houden, maar de afstand laten meeschalen met de breedte.
+let cameraBreedte = 0;
+function pasCameraAan(breedte, midden) {
+  if (Math.abs(breedte - cameraBreedte) < 1) return;
+  cameraBreedte = breedte;
+  const richting = camera.position.clone().sub(controls.target).normalize();
+  controls.target.set(midden - breedte * 0.12, 0, 0); // iets naar links: het paneel bedekt de linkerkant
+  camera.position.copy(controls.target).addScaledVector(richting, breedte * 0.85 + 60);
+}
+
+// ---------- regen ----------
+
+let regen = new THREE.Points();
+scene.add(regen);
+
+let regenSleutel = "";
+
+function bouwRegen(p, breedte, R) {
+  const sleutel = `${R}|${breedte}|${p.M * p.E}`;
+  if (sleutel === regenSleutel) return;
+  regenSleutel = sleutel;
+  scene.remove(regen);
+  regen.geometry?.dispose();
+  const aantal = Math.min(Math.max(Math.round(R * 1000 * 250), 0), 20000); // ~250 druppels per mm/dag
+  const pos = new Float32Array(aantal * 3);
+  for (let i = 0; i < aantal; i++) {
+    pos[3 * i] = (Math.random() - 0.5) * breedte;
+    pos[3 * i + 1] = p.M * p.E + Math.random() * 60;
+    pos[3 * i + 2] = (Math.random() - 0.5) * PERCEELLENGTE;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  regen = new THREE.Points(geo, new THREE.PointsMaterial({ color: kleur.regen, size: 0.35 }));
+  regen.userData = { bodem: p.M * p.E, hoogte: 60 };
+  regen.visible = $("regen").checked;
+  scene.add(regen);
+}
+
+function animeerRegen(dt) {
+  if (!regen.visible || !regen.geometry.attributes.position) return;
+  const pos = regen.geometry.attributes.position;
+  const { bodem, hoogte } = regen.userData;
+  for (let i = 0; i < pos.count; i++) {
+    let y = pos.getY(i) - 40 * dt;
+    if (y < bodem) y += hoogte;
+    pos.setY(i, y);
+  }
+  pos.needsUpdate = true;
+}
+
+// ---------- bijwerken ----------
+
+let sim = null; // simulatie(s) voor de huidige invoer en modus
+
+const m3 = (v) => `${Math.round(v).toLocaleString("nl-NL")} m³`;
+const mmSchijf = (v, opp) => `${Math.round((v / opp) * 1000).toLocaleString("nl-NL")} mm waterschijf`;
+
+function kiesModus(m) {
+  modus = m;
+  for (const [knop, mm] of TABS) $(knop).setAttribute("aria-selected", String(mm === m));
+  $("paneel-bui").hidden = m !== "bui";
+  $("paneel-droog").hidden = m !== "droog";
+  $("paneel-weer").hidden = m !== "weer";
+  $("paneel-maatregel").hidden = m === "bui";
+  $("regen-svg").hidden = m !== "weer";
+  if (m === "weer") invoer.q.value = WEER[Number($("weer").value)].q0;
+  $("t").max = MODI[m].eind;
+  $("t").step = MODI[m].dt;
+  $("t").value = 0;
+  bijwerken();
+}
+
+// Alle invoer behalve de tijd: opnieuw simuleren, per perceel.
+function bijwerken() {
+  const p = parameters();
+  $("K-out").value = `${fmt(p.K, p.K < 0.1 ? 3 : 2)} m/d`;
+  $("L-out").value = `${p.L} m`;
+  $("q-out").value = `${fmt(p.q * 1000, 1)} mm/d`;
+  $("D-out").value = `${fmt(p.D, 1)} m`;
+  $("M-out").value = `${fmt(p.M)} m`;
+  $("N-out").value = p.N;
+  $("E-out").value = `${p.E}×`;
+  $("T-out").value = `${Math.round(p.T * 100)}%`;
+  $("n-out").value = fmt(p.n);
+  $("mu-out").value = fmt(p.mu);
+  $("P-out").value = `${Math.round(p.P * 1000)} mm`;
+  $("E-verd-out").value = `${fmt(p.Everd * 1000, 1)} mm/d`;
+  $("opzet-out").value = `+${Math.round(p.opzet * 100)} cm`;
+  $("H-out").value = `${p.H > 0 ? "+" : ""}${fmt(p.H, 1)} m`;
+  $("c-out").value = `${p.c} d`;
+  $("kD-out").value = `${p.kD} m²/d`;
+  $("B-out").value = `${p.B} m`;
+  invoer.perceel.max = p.N;
+  $("perceel-out").value = `${p.perceel + 1} van ${p.N}`;
+
+  // kwel per perceel (m/dag); bij peilopzet daalt de kwel omdat het polderpeil stijgt
+  const kwelBij = (hp) => (p.kwelAan ? mazure(p.H, hp, p.kD, p.c, p.B) : null);
+  const kw = kwelBij(0);
+  const kwelVan = (k) => Array.from({ length: p.N }, (_, i) => (k ? k.kwel(perceelAfstand(i, p.L)) : 0));
+  const s0 = kwelVan(kw);
+
+  // startprofiel per perceel: stationaire spiegel bij q + kwel, afgekapt op maaiveld
+  const h0 = s0.map((s) => (x) => Math.min(opbolling(x, p.L, p.q + s, p.K, p.D), p.M));
+  const { dt, eind } = MODI[modus];
+  const j = p.perceel;
+  sim = { kw, s0, h0 };
+
+  if (modus === "bui") {
+    sim.p = s0.map((s, i) => kraijenhoff(h0[i], p.L, p.K, p.D, p.mu, (t) => (t < 1 ? p.P : 0) + s, dt, Math.round(eind / dt)));
+    sim.t = sim.p[0].t;
+    sim.j = sim.p[j].j;
+    tekenGrafiek("Afvoer naar de sloten (mm/dag)", [
+      { naam: "afvoer", klasse: "", waarden: sim.p[j].afvoer.map((v) => v * 1000) },
+    ], { vanaf: 0 });
+  } else {
+    // droogte: vaste verdamping; echt weer: neerslag min verdamping per dag (KNMI)
+    const w = WEER[Number($("weer").value)];
+    const dag = (t) => Math.min(Math.floor(t), w.P.length - 1);
+    const basis = modus === "droog" ? () => -p.Everd : (t) => (w.P[dag(t)] - w.E[dag(t)]) / 1000;
+    const sMet = kwelVan(kwelBij(p.opzet));
+    const grond = { L: p.L, K: p.K, D: p.D, mu: p.mu, M: p.M };
+    const opties = { aanvoer: p.aanvoer, dagen: eind, dt };
+    sim.ref = s0.map((s, i) => droogte(h0[i], grond, { ...opties, R: (t) => basis(t) + s, peil: 0 }));
+    sim.met = sMet.map((s, i) => droogte(h0[i], grond, { ...opties, R: (t) => basis(t) + s, peil: p.opzet }));
+    sim.t = sim.met[0].t;
+    const midden = (r) => r.h.map((h) => knoopProfiel(h, p.L / 2, r.dx) - p.M);
+    tekenGrafiek("Grondwaterstand midden perceel (m t.o.v. maaiveld)", [
+      { naam: "zonder", klasse: "ref", waarden: midden(sim.ref[j]) },
+      { naam: `+${Math.round(p.opzet * 100)} cm`, klasse: "maatregel", waarden: midden(sim.met[j]) },
+    ], { tot: 0 });
+    tekenRegen(modus === "weer" ? w.P : null);
+  }
+
+  // kwel-uitkomsten
+  const rijen = [];
+  if (kw) {
+    rijen.push(["Spreidingslengte λ", `${Math.round(kw.lambda)} m`]);
+    rijen.push([kw.Q >= 0 ? "Kwel totaal" : "Wegzijging totaal", `${fmt(Math.abs(kw.Q), 2)} m³/dag per m dijk`]);
+    rijen.push(["Kwel per perceel, 1 → " + p.N, "mm/dag"]);
+    rijen.push(["", s0.map((s) => fmt(s * 1000, 1)).join(" · ")]);
+  }
+  vulLijst("kwel-uitkomst", rijen);
+
+  const Lmax = slootafstand(p.M, p.q + Math.max(...s0), p.K, p.K, p.D);
+  $("L-max").textContent = Number.isFinite(Lmax) ? `${fmt(Lmax, 1)} m` : "–";
+  toon();
+}
+
+function vulLijst(id, rijen) {
+  $(id).replaceChildren(...rijen.flatMap(([dt, dd]) => {
+    const a = document.createElement("dt"), b = document.createElement("dd");
+    a.textContent = dt;
+    b.textContent = dd;
+    if (!dt) b.className = "klein";
+    return [a, b];
+  }));
+}
+
+// Huidig tijdstip tonen: 3D-polder, getallen en marker in de grafiek.
+function toon() {
+  const p = parameters();
+  const { dt } = MODI[modus];
+  const k = Math.min(Math.round(Number($("t").value) / dt), sim.t.length - 1);
+  const j = p.perceel;
+  $("t-out").value = `dag ${fmt(sim.t[k], 1)}`;
+
+  let hs, R, niveaus = new Array(p.N + 1).fill(0), stuw = null;
+  if (modus === "bui") {
+    // t = 0: de exacte ellips; daarna de reeksoplossing
+    hs = sim.p.map((r, i) => (k === 0
+      ? (x) => opbolling(x, p.L, p.q + sim.s0[i], p.K, p.D)
+      : (x) => reeksProfiel(r.b[k], x, p.L)));
+    R = k === 0 ? (p.P > 0 ? p.P : p.q) : sim.p[0].regen[k] - sim.s0[0];
+  } else {
+    hs = sim.met.map((r) => (x) => knoopProfiel(r.h[k], x, r.dx));
+    R = modus === "weer" ? WEER[Number($("weer").value)].P[Math.min(Math.floor(sim.t[k]), MODI.weer.eind - 1)] / 1000
+      : k === 0 ? p.q : 0;
+    // zonder aanvoer zakt het slootwater mee zodra het grondwater onder het stuwpeil staat
+    niveaus = niveaus.map((_, i) => {
+      if (p.aanvoer) return p.opzet;
+      const buren = [sim.met[i - 1]?.h[k].at(-1), sim.met[i]?.h[k][0]].filter((v) => v !== undefined);
+      return Math.min(p.opzet, ...buren);
+    });
+    if (p.opzet > 0) stuw = p.opzet;
+  }
+  const { breedte, plassen } = bouwPolder(p, hs, niveaus, stuw, sim.kw);
+  pasCameraAan(breedte + (sim.kw ? p.B + RIVIERBREEDTE : 0), sim.kw ? -(p.B + RIVIERBREEDTE) / 2 : 0);
+  bouwRegen(p, breedte, R);
+
+  const h = hs[j], plas = plassen[j];
+  const hMid = h(p.L / 2);
+  $("h-mid").textContent = `${fmt(hMid)} m`;
+  $("ontw").textContent = `${fmt(p.M - hMid)} m`;
+
+  // volumes voor alle percelen samen
+  const opp = p.N * p.L * PERCEELLENGTE;  // m2
+  const A = hs.map((hi) => verzadigd(hi, p)); // m2 per m slootlengte, per perceel
+  const som = (f) => A.reduce((s, a) => s + f(a), 0) * PERCEELLENGTE;
+  const totaal = som((a) => p.n * a);
+  const afvoerbaar = som((a) => p.mu * (a - p.D * p.L));
+  $("v-tot").textContent = m3(totaal);
+  $("v-tot-mm").textContent = mmSchijf(totaal, opp);
+  $("v-afv").textContent = m3(afvoerbaar);
+  $("v-afv-mm").textContent = mmSchijf(afvoerbaar, opp);
+
+  // uitkomsten van het tijdscenario (voor het gekozen perceel; vastgehouden water voor alle)
+  const rijen = [];
+  if (modus === "bui") {
+    rijen.push(["Reservoircoëfficiënt j", `${fmt(sim.j, 1)} dagen`]);
+    rijen.push(["Afvoer nu", `${fmt(sim.p[j].afvoer[k] * 1000, 1)} mm/dag`]);
+  } else {
+    const href = (r) => (x) => knoopProfiel(r.h[k], x, r.dx);
+    const extra = sim.ref.reduce((s, r, i) => s + p.mu * (A[i] - verzadigd(href(r), p)), 0) * PERCEELLENGTE;
+    const sloot = sim.met[j].sloot[k] * 1000;
+    rijen.push(["Grondwater midden, zonder", `${fmt(href(sim.ref[j])(p.L / 2) - p.M)} m`]);
+    rijen.push(["Grondwater midden, met stuw", `${fmt(hMid - p.M)} m`]);
+    rijen.push(["Extra water vastgehouden", m3(extra)]);
+    rijen.push(["", mmSchijf(extra, opp)]);
+    rijen.push([sloot < 0 ? "Aanvoer uit sloot" : "Afvoer naar sloot", `${fmt(Math.abs(sloot), 1)} mm/dag`]);
+    if (modus === "weer") {
+      const w = WEER[Number($("weer").value)];
+      const d = Math.min(Math.floor(sim.t[k]), w.P.length - 1);
+      const tot = (a) => Math.round(a.slice(0, d + 1).reduce((x, y) => x + y, 0));
+      rijen.unshift(["Datum", datum(new Date(Date.UTC(+w.start.slice(0, 4), +w.start.slice(4, 6) - 1, +w.start.slice(6) + d))
+        .toISOString().slice(0, 10).replaceAll("-", ""))]);
+      rijen.push(["Neerslag tot nu", `${tot(w.P)} mm`]);
+      rijen.push(["Verdamping tot nu", `${tot(w.E)} mm`]);
+    }
+  }
+  vulLijst("tijd-uitkomst", rijen);
+
+  const status = $("status");
+  if (plas) {
+    const deel = Math.round((100 * (plas[1] - plas[0])) / p.L);
+    status.textContent = `Grondwater boven maaiveld op ${deel}% van het perceel.`;
+    status.className = "fout";
+  } else if (hMid <= -p.D + 0.01) {
+    status.textContent = "Het watervoerend pakket is midden in het perceel leeg.";
+    status.className = "fout";
+  } else if (modus !== "bui") {
+    status.textContent = `Grondwater midden ${fmt(p.M - hMid)} m onder maaiveld.`;
+    status.className = "";
+  } else {
+    status.textContent = "Grondwater blijft onder maaiveld.";
+    status.className = "goed";
+  }
+  zetMarker(k);
+}
+
+// ---------- grafiek ----------
+
+const G = { x0: 30, x1: 216, y0: 100, y1: 8 }; // tekengebied in viewBox-eenheden
+const svg = $("grafiek-svg");
+const NS = "http://www.w3.org/2000/svg";
+let reeksen = [];
+let bereik = [0, 1];
+
+function svgEl(naam, attr, tekst) {
+  const el = document.createElementNS(NS, naam);
+  for (const [k, v] of Object.entries(attr)) el.setAttribute(k, v);
+  if (tekst !== undefined) el.textContent = tekst;
+  svg.appendChild(el);
+  return el;
+}
+const tEind = () => MODI[modus].eind;
+const gx = (t) => G.x0 + (t / tEind()) * (G.x1 - G.x0);
+const gy = (v) => G.y0 - ((v - bereik[0]) / (bereik[1] - bereik[0])) * (G.y0 - G.y1);
+
+// mooie stapgrootte zodat [min, max] in twee stappen past
+function mooiBereik(min, max) {
+  const ruw = Math.max(max - min, 1e-3) / 2;
+  const macht = 10 ** Math.floor(Math.log10(ruw));
+  const stap = [1, 2, 2.5, 5, 10].map((f) => f * macht).find((s) => s >= ruw);
+  return [Math.floor(min / stap) * stap, Math.ceil(max / stap) * stap, stap];
+}
+
+function tekenGrafiek(titel, nieuweReeksen, { vanaf, tot }) {
+  reeksen = nieuweReeksen;
+  $("grafiek-titel").textContent = titel + (modus === "weer" ? "; balken: neerslag" : "");
+  svg.setAttribute("aria-label", titel);
+  svg.replaceChildren();
+
+  const alle = reeksen.flatMap((r) => r.waarden);
+  const [lo, hi, stap] = mooiBereik(Math.min(...alle, vanaf ?? Infinity), Math.max(...alle, tot ?? -Infinity));
+  bereik = [lo, hi];
+
+  for (let v = lo; v <= hi + stap / 2; v += stap) {
+    svgEl("line", { class: "as", x1: G.x0, x2: G.x1, y1: gy(v), y2: gy(v) });
+    const dec = Math.abs(stap) < 1 ? (stap * 10) % 1 ? 2 : 1 : 0;
+    svgEl("text", { x: G.x0 - 4, y: gy(v) + 3, "text-anchor": "end" }, fmt(v, dec));
+  }
+  if (modus === "weer") {
+    // echte datums: een streepje per maand, met de maandnaam
+    const st = WEER[Number($("weer").value)].start;
+    const begin = Date.UTC(+st.slice(0, 4), +st.slice(4, 6) - 1, +st.slice(6));
+    for (let m = 0; ; m++) {
+      const eerste = Date.UTC(+st.slice(0, 4), +st.slice(4, 6) - 1 + m, 1);
+      const d = (eerste - begin) / 864e5;
+      if (d > tEind()) break;
+      if (d < 0) continue;
+      const naam = new Date(eerste).toLocaleDateString("nl-NL", { month: "short", timeZone: "UTC" }).replace(".", "");
+      svgEl("text", { x: gx(d), y: G.y0 + 12, "text-anchor": "start" }, naam);
+    }
+  } else {
+    for (const t of [0, tEind() / 3, (2 * tEind()) / 3, tEind()]) {
+      const laatste = t === tEind();
+      svgEl("text", { x: gx(t), y: G.y0 + 12, "text-anchor": laatste ? "end" : "middle" }, laatste ? `${t} dagen` : t);
+    }
+  }
+  const ts = sim.t;
+  for (const r of reeksen) {
+    const punten = ts.map((t, i) => `${gx(t).toFixed(1)},${gy(r.waarden[i]).toFixed(1)}`);
+    if (reeksen.length === 1) {
+      svgEl("polygon", { class: "vlak", points: `${gx(0)},${gy(lo)} ${punten.join(" ")} ${gx(tEind())},${gy(lo)}` });
+    }
+    svgEl("polyline", { class: `lijn ${r.klasse}`, points: punten.join(" ") });
+  }
+  // directe labels aan het eind van elke lijn, uit elkaar geschoven als ze botsen
+  if (reeksen.length > 1) {
+    const ys = reeksen.map((r) => gy(r.waarden.at(-1)));
+    if (Math.abs(ys[0] - ys[1]) < 10) {
+      const m = (ys[0] + ys[1]) / 2, o = ys[0] <= ys[1] ? -5 : 5;
+      ys[0] = m + o; ys[1] = m - o;
+    }
+    reeksen.forEach((r, i) => svgEl("text", { class: "label", x: G.x1 + 3, y: ys[i] + 3 }, r.naam));
+  }
+  $("legenda").replaceChildren(...(reeksen.length > 1 ? reeksen.map((r) => {
+    const el = document.createElement("span");
+    el.innerHTML = `<i class="${r.klasse}"></i>`;
+    el.append(r.klasse === "ref" ? "zonder maatregel" : `met stuw ${r.naam}`);
+    return el;
+  }) : []));
+
+  svgEl("line", { id: "nu", class: "nu", y1: G.y1, y2: G.y0 });
+  svgEl("circle", { id: "punt", class: "punt", r: 4 });
+}
+
+// Neerslag per dag als smalle balken boven de grondwatergrafiek (zelfde tijdas).
+function tekenRegen(P) {
+  const rs = $("regen-svg");
+  rs.replaceChildren();
+  if (!P) return;
+  const max = Math.max(...P, 1);
+  const w = Math.max((G.x1 - G.x0) / P.length - 0.4, 0.4);
+  const el = (naam, attr, tekst) => {
+    const e = document.createElementNS(NS, naam);
+    for (const [k, v] of Object.entries(attr)) e.setAttribute(k, v);
+    if (tekst !== undefined) e.textContent = tekst;
+    rs.appendChild(e);
+  };
+  P.forEach((v, d) => {
+    if (v > 0) el("rect", { x: gx(d), y: 30 - (v / max) * 26, width: w, height: (v / max) * 26 });
+  });
+  el("text", { x: G.x0 - 4, y: 10, "text-anchor": "end" }, Math.round(max));
+  el("text", { x: G.x1 + 3, y: 10 }, "mm");
+}
+
+function zetMarker(k) {
+  const r = reeksen.at(-1);
+  const x = gx(sim.t[k]), y = gy(r.waarden[k]);
+  const nu = svg.querySelector("#nu"), punt = svg.querySelector("#punt");
+  nu.setAttribute("x1", x); nu.setAttribute("x2", x);
+  punt.setAttribute("cx", x); punt.setAttribute("cy", y);
+}
+
+// hover toont de waarden, klikken springt naar dat tijdstip
+function stapUitMuis(e) {
+  const r = svg.getBoundingClientRect();
+  const vx = ((e.clientX - r.left) / r.width) * 260;
+  const t = Math.min(Math.max(((vx - G.x0) / (G.x1 - G.x0)) * tEind(), 0), tEind());
+  return Math.round(t / MODI[modus].dt);
+}
+svg.addEventListener("pointermove", (e) => {
+  const k = stapUitMuis(e), tip = $("tip");
+  const eenheid = modus === "bui" ? " mm/dag" : " m";
+  const waarden = reeksen.map((r) => (reeksen.length > 1 ? `${r.naam} ` : "") + fmt(r.waarden[k], modus === "bui" ? 1 : 2) + eenheid);
+  tip.hidden = false;
+  tip.textContent = `dag ${fmt(sim.t[k], 1)}: ${waarden.join(" · ")}`;
+  const r = svg.getBoundingClientRect();
+  const links = (gx(sim.t[k]) / 260) * r.width;
+  tip.style.left = `${Math.min(Math.max(links - tip.offsetWidth / 2, 0), r.width - tip.offsetWidth)}px`;
+});
+svg.addEventListener("pointerleave", () => ($("tip").hidden = true));
+svg.addEventListener("click", (e) => {
+  $("t").value = sim.t[stapUitMuis(e)];
+  toon();
+});
+
+// ---------- afspelen ----------
+
+let speelt = false;
+$("speel").addEventListener("click", () => {
+  speelt = !speelt;
+  if (speelt && Number($("t").value) >= tEind()) $("t").value = 0;
+  $("speel").textContent = speelt ? "Pauze" : "Afspelen";
+});
+
+function speelStap(dt) {
+  if (!speelt) return;
+  const t = Math.min(Number($("t").value) + (tEind() / 10) * dt, tEind()); // hele periode in 10 s
+  $("t").value = t;
+  toon();
+  if (t >= tEind()) {
+    speelt = false;
+    $("speel").textContent = "Afspelen";
+  }
+}
+
+// ---------- render-lus ----------
+
+function schaal() {
+  const { clientWidth: w, clientHeight: h } = $("scene");
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener("resize", schaal);
+schaal();
+kiesWeer();
+bijwerken();
+
+const klok = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(klok.getDelta(), 0.1);
+  speelStap(dt);
+  animeerRegen(dt);
+  controls.update();
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>
