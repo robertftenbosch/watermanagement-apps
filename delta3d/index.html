@@ -501,6 +501,60 @@ function losPhi(m, phi, a, rhs, sweeps, omega = 1.6, tol = 1e-4) {
   return sweeps;
 }
 
+// Zelfde stelsel, opgelost met geconjugeerde gradiënten (Jacobi-gepreconditioneerd), tot de
+// grootste correctie per cel onder tol (m) ligt. Convergeert ook op fijne rasters snel, waar
+// SOR veel sweeps nodig heeft; gebruikt als m.oplosser === "cg" (Gebied 3D, 250 m).
+// Geeft het aantal iteraties.
+function losPhiCG(m, phi, a, rhs, tol = 1e-5, maxIt = 5000) {
+  const { land, landIndex, bStart, bIdx, bT, somT } = m;
+  const L = land.length;
+  if (!m.cg) { // werkruimte en buren als landindex (-1 = vaste stijghoogte)
+    m.cg = { b: new Float64Array(L), x: new Float64Array(L), r: new Float64Array(L), z: new Float64Array(L),
+      p: new Float64Array(L), q: new Float64Array(L), d: new Float64Array(L), buur: Int32Array.from(bIdx, (k) => landIndex[k]) };
+  }
+  const { b, x, r, z, p, q, d, buur } = m.cg;
+  for (let t = 0; t < L; t++) {
+    let som = rhs[t];
+    for (let e = bStart[t]; e < bStart[t + 1]; e++) if (buur[e] < 0) som += bT[e] * phi[bIdx[e]];
+    b[t] = som;
+    d[t] = a[t] + somT[t];
+    x[t] = phi[land[t]];
+  }
+  const maal = (v, uit) => {
+    for (let t = 0; t < L; t++) {
+      let s = d[t] * v[t];
+      for (let e = bStart[t]; e < bStart[t + 1]; e++) if (buur[e] >= 0) s -= bT[e] * v[buur[e]];
+      uit[t] = s;
+    }
+  };
+  maal(x, q);
+  let rz = 0;
+  for (let t = 0; t < L; t++) { r[t] = b[t] - q[t]; z[t] = r[t] / d[t]; p[t] = z[t]; rz += r[t] * z[t]; }
+  let it = 0;
+  for (; it < maxIt; it++) {
+    let maxz = 0;
+    for (let t = 0; t < L; t++) { const v = Math.abs(z[t]); if (v > maxz) maxz = v; }
+    if (maxz < tol) break;
+    maal(p, q);
+    let pq = 0;
+    for (let t = 0; t < L; t++) pq += p[t] * q[t];
+    const alfa = rz / pq;
+    let rzNieuw = 0;
+    for (let t = 0; t < L; t++) {
+      x[t] += alfa * p[t]; r[t] -= alfa * q[t]; z[t] = r[t] / d[t]; rzNieuw += r[t] * z[t];
+    }
+    const beta = rzNieuw / rz;
+    rz = rzNieuw;
+    for (let t = 0; t < L; t++) p[t] = z[t] + beta * p[t];
+  }
+  for (let t = 0; t < L; t++) phi[land[t]] = x[t];
+  return it;
+}
+
+// Kies de oplosser: SOR (Delta 3D, 1 km) of CG (m.oplosser === "cg").
+const los = (m, phi, a, rhs, sweeps, omega, tol) =>
+  (m.oplosser === "cg" ? losPhiCG(m, phi, a, rhs, tol ?? 1e-5) : losPhi(m, phi, a, rhs, sweeps, omega, tol));
+
 // Beginwaarden: vaste stijghoogte in water, maaiveld - drooglegging op land.
 function startPhi(m) {
   const phi = new Float64Array(m.n);
@@ -523,7 +577,7 @@ function stationair(m, q, opzet = 0, aanvoer = true) {
       if (draineert[k]) { a[t] = m.A / (m.gamma[k] + m.c[k]); rhs[t] = a[t] * (hs + q * m.gamma[k]); }
       else { a[t] = 0; rhs[t] = m.A * q; } // geen drainage: hele overschot naar het pakket
     });
-    sweeps += losPhi(m, phi, a, rhs, 4000, 1.9, 1e-6);
+    sweeps += los(m, phi, a, rhs, 4000, 1.9, 1e-6);
     let wissel = 0;
     for (const k of m.land) {
       const hs = m.hs0[k] + opzet, g = m.gamma[k], c = m.c[k];
@@ -575,7 +629,7 @@ async function tijdreeks(m, start, { dagen, regen, verdamping, opzet = 0, aanvoe
       h[k] = hn;
     }
     for (let t = 0; t < L; t++) rhs[t] = a[t] * h[land[t]];
-    losPhi(m, phi, a, rhs, 8);
+    los(m, phi, a, rhs, 8);
     if (bewaarDag(d + 1)) bewaar(afvoer);
     if (voortgang && d % 5 === 4) await voortgang((d + 1) / dagen);
   }
