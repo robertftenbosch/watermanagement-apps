@@ -18,6 +18,7 @@
   --accent: #1f6fb2;
   --goed: #2e7d32;
   --fout: #c62828;
+  --drain: #d08a1e;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -31,6 +32,7 @@
     --accent: #6cb2ee;
     --goed: #74c278;
     --fout: #f07070;
+    --drain: #e8a33a;
     color-scheme: dark;
   }
 }
@@ -45,6 +47,7 @@
   --accent: #6cb2ee;
   --goed: #74c278;
   --fout: #f07070;
+  --drain: #e8a33a;
   color-scheme: dark;
 }
 
@@ -87,7 +90,7 @@ details { margin: 12px 0; }
 summary { cursor: pointer; color: var(--zacht); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-#uitkomst, #volume, #tijd-uitkomst, #kwel-uitkomst {
+#uitkomst, #volume, #tijd-uitkomst, #kwel-uitkomst, #drainage-uitkomst {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 4px 12px;
@@ -95,15 +98,29 @@ summary { cursor: pointer; color: var(--zacht); }
   padding-top: 10px;
   border-top: 1px solid var(--lijn);
 }
-#uitkomst dt, #volume dt, #tijd-uitkomst dt, #kwel-uitkomst dt { color: var(--zacht); }
-#uitkomst dd, #volume dd, #tijd-uitkomst dd, #kwel-uitkomst dd { margin: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+#uitkomst dt, #volume dt, #tijd-uitkomst dt, #kwel-uitkomst dt, #drainage-uitkomst dt { color: var(--zacht); }
+#uitkomst dd, #volume dd, #tijd-uitkomst dd, #kwel-uitkomst dd, #drainage-uitkomst dd { margin: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
 
 #volume dd.klein { margin-top: -4px; font-weight: 400; color: var(--zacht); }
 
-#tijd, #kwel { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--lijn); }
+#tijd, #kwel, #drainage { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--lijn); }
 h2 { margin: 0; font-size: 15px; }
 .uitleg { margin: 2px 0 8px; font-size: 12px; color: var(--zacht); }
-#tijd-uitkomst, #kwel-uitkomst { border-top: 0; margin-top: 6px; padding-top: 0; }
+#tijd-uitkomst, #kwel-uitkomst, #drainage-uitkomst { border-top: 0; margin-top: 6px; padding-top: 0; }
+
+/* uitsplitsing van de opbolling (Ernst): verticaal, horizontaal, radiaal */
+#weerstanden { display: flex; height: 8px; margin: 8px 0 2px; border-radius: 4px; overflow: hidden; background: var(--lijn); }
+#weerstanden[hidden] { display: none; }
+#weerstanden span { flex: 0 0 0; min-width: 0; }
+#weerstanden .v { background: var(--goed); }
+#weerstanden .h { background: var(--accent); }
+#weerstanden .r { background: var(--drain); }
+#drainage-uitkomst dt.v::before, #drainage-uitkomst dt.h::before, #drainage-uitkomst dt.r::before {
+  content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 2px;
+}
+#drainage-uitkomst dt.v::before { background: var(--goed); }
+#drainage-uitkomst dt.h::before { background: var(--accent); }
+#drainage-uitkomst dt.r::before { background: var(--drain); }
 #tijd-uitkomst dd.klein { margin-top: -4px; font-weight: 400; color: var(--zacht); }
 
 .tabs { display: flex; gap: 4px; margin-bottom: 6px; }
@@ -111,7 +128,7 @@ h2 { margin: 0; font-size: 15px; }
 .tabs button[aria-selected="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 .tabs button:hover { background: transparent; color: var(--accent); }
 
-#legenda { display: flex; gap: 12px; font-size: 11px; color: var(--zacht); margin-bottom: 2px; }
+#legenda { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 11px; color: var(--zacht); margin-bottom: 2px; }
 #legenda:empty { display: none; }
 #legenda span { display: inline-flex; align-items: center; gap: 4px; }
 #legenda i { display: inline-block; width: 14px; height: 2px; border-radius: 1px; }
@@ -179,7 +196,7 @@ button:hover { background: var(--accent); color: var(--paneel-vast); }
 
   <aside id="paneel">
     <h1>Polder 3D</h1>
-    <p class="sub">Grondwaterstand tussen sloten (Hooghoudt)</p>
+    <p class="sub">Grondwaterstand tussen sloten en drains (Hooghoudt, Ernst)</p>
 
     <label>Grondsoort
       <select id="grond"></select>
@@ -206,6 +223,41 @@ button:hover { background: var(--accent); color: var(--paneel-vast); }
     <label>Bergingscoëfficiënt μ <output id="mu-out"></output>
       <input id="mu" type="range" min="0.01" max="0.3" step="0.01" value="0.06">
     </label>
+
+    <section id="drainage">
+      <h2>Drainage</h2>
+      <label>Formule
+        <select id="formule">
+          <option value="hooghoudt">Hooghoudt (equivalente diepte)</option>
+          <option value="ernst">Ernst (drie weerstanden)</option>
+        </select>
+      </label>
+      <div id="weerstanden" hidden aria-hidden="true">
+        <span id="w-v" class="v"></span><span id="w-h" class="h"></span><span id="w-r" class="r"></span>
+      </div>
+      <dl id="drainage-uitkomst"></dl>
+      <label class="check"><input id="drains-aan" type="checkbox"> Buisdrainage tussen de sloten</label>
+      <div id="paneel-drains" hidden>
+        <label>Draindiepte onder maaiveld <output id="zd-out"></output>
+          <input id="zd" type="range" min="0.5" max="1.6" step="0.05" value="0.9">
+        </label>
+        <label>Drainafstand <output id="Ld-out"></output>
+          <input id="Ld" type="range" min="4" max="40" step="1" value="10">
+        </label>
+        <label>Buisstraal <output id="rd-out"></output>
+          <input id="rd" type="range" min="20" max="100" step="5" value="30">
+        </label>
+        <label class="check"><input id="peilgestuurd" type="checkbox"> Peilgestuurde drainage</label>
+        <div id="paneel-peilgestuurd" hidden>
+          <p class="uitleg">De uitlaat van de drains is verstelbaar. In Droogte en Echt weer staat
+            hij in het groeiseizoen (april t/m september) hoger dan de drain, in de winter op
+            draindiepte; vergeleken met gewone buisdrainage.</p>
+          <label>Uitlaat in de zomer boven de drain <output id="uitlaat-out"></output>
+            <input id="uitlaat" type="range" min="0" max="0.8" step="0.05" value="0.4">
+          </label>
+        </div>
+      </div>
+    </section>
 
     <section id="kwel">
       <h2>Kwel</h2>
@@ -249,7 +301,8 @@ button:hover { background: var(--accent); color: var(--paneel-vast); }
 
       <div id="paneel-droog" hidden>
         <p class="uitleg">Weken zonder regen met verdamping. Vergelijk de huidige situatie met
-          een hoger slootpeil (stuw). De 3D-weergave toont de situatie met maatregel.</p>
+          een maatregel: een hoger slootpeil (stuw) en, met buisdrainage, peilgestuurde drainage.
+          De 3D-weergave toont de situatie met maatregel.</p>
         <label>Verdampingsoverschot <output id="E-verd-out"></output>
           <input id="E-verd" type="range" min="0.5" max="5" step="0.5" value="2">
         </label>
@@ -302,7 +355,7 @@ button:hover { background: var(--accent); color: var(--paneel-vast); }
     <dl id="uitkomst">
       <dt>Opbolling midden</dt><dd id="h-mid"></dd>
       <dt>Ontwateringsdiepte</dt><dd id="ontw"></dd>
-      <dt>Max. slootafstand</dt><dd id="L-max"></dd>
+      <dt id="L-max-naam">Max. slootafstand</dt><dd id="L-max"></dd>
     </dl>
     <dl id="volume">
       <dt>Water in de grond</dt><dd id="v-tot"></dd>
@@ -312,9 +365,11 @@ button:hover { background: var(--accent); color: var(--paneel-vast); }
     </dl>
     <p id="status"></p>
 
-    <p class="noot">Stationair, Dupuit-Forchheimer, één K boven en onder slootpeil,
-      equivalente diepte d = D. Kraijenhoff van de Leur gelineariseerd met
-      transmissiviteit K·D; het startprofiel is de stationaire spiegel bij q. Droogte: eindige differenties, zonder
+    <p class="noot">Stationair, Dupuit-Forchheimer, één K boven en onder slootpeil.
+      Hooghoudt met de equivalente diepte d (Van der Molen en Wesseling) voor de radiale
+      stroming naar sloot of drain; Ernst voor een homogeen profiel (geometriefactor 1).
+      Drains liggen in het model evenwijdig aan de sloten en voeren alleen af. Kraijenhoff van de Leur gelineariseerd met
+      transmissiviteit K·d; het startprofiel is de stationaire spiegel bij q. Droogte: eindige differenties, zonder
       afname van de verdamping bij diepere grondwaterstanden. Kwel: Mazure, per perceel
       uniform op de afstand van het perceelmidden tot de dijk. Volumes voor alle percelen samen
       (perceellengte 80 m); de onverzadigde zone is niet meegeteld. Zie <code>notities/hooghoudt-overdracht.md</code>.</p>
@@ -440,9 +495,11 @@ function reeksProfiel(b, x, L) {
 //                    anders geen uitwisseling (stuw zonder wateraanvoer)
 // T = K * (D + peil). Water boven maaiveld stroomt af; de spiegel zakt niet onder
 // de ondoorlatende laag. h is t.o.v. het oorspronkelijke slootpeil.
-function droogte(h0, { L, K, D, mu, M }, { R, peil = 0, aanvoer = false, dagen = 90, dt = 0.1, knopen = 100 }) {
+// T: transmissiviteit (standaard K * (D + peil); K * d om met een equivalente diepte te rekenen).
+// drains: { x: [posities], peil: getal of functie van t (uitlaatniveau) }; een drain voert alleen af.
+function droogte(h0, { L, K, D, mu, M, T: Tvast }, { R, peil = 0, aanvoer = false, dagen = 90, dt = 0.1, knopen = 100, drains = null }) {
   const dx = L / knopen;
-  const T = K * Math.max(D + peil, 0.1);
+  const T = Tvast ?? K * Math.max(D + peil, 0.1);
   const r = (T * dt) / (mu * dx * dx);
   let h = Float64Array.from({ length: knopen + 1 }, (_, i) => h0(i * dx));
   const gem = (h) => {
@@ -451,7 +508,10 @@ function droogte(h0, { L, K, D, mu, M }, { R, peil = 0, aanvoer = false, dagen =
     return s / knopen;
   };
   const stappen = Math.round(dagen / dt);
-  const uit = { t: [0], h: [h], hGem: [gem(h)], sloot: [NaN], dx };
+  const uit = { t: [0], h: [h], hGem: [gem(h)], sloot: [NaN], drain: [NaN], dx };
+  const knoop = (drains?.x ?? []).map((x) => Math.min(Math.max(Math.round(x / dx), 1), knopen - 1));
+  const drainpeil = typeof drains?.peil === "function" ? drains.peil : () => drains?.peil;
+  let onttrekking = new Map(); // per werkende drainknoop: afvoer in de vorige stap (m2/dag)
 
   // tridiagonaal stelsel (Thomas) voor de impliciete stap
   const a = new Float64Array(knopen + 1), b = new Float64Array(knopen + 1);
@@ -468,6 +528,10 @@ function droogte(h0, { L, K, D, mu, M }, { R, peil = 0, aanvoer = false, dagen =
     } else { // geen stroming over de rand: spiegelpunt
       c[0] = -2 * r; a[knopen] = -2 * r;
     }
+    // een drain werkt als de spiegel erboven staat, en blijft werken zolang hij afvoert
+    const pd = drainpeil(s * dt);
+    const werkt = knoop.filter((i) => h[i] > pd || onttrekking.get(i) > 0);
+    for (const i of werkt) { a[i] = 0; b[i] = 1; c[i] = 0; d[i] = pd; }
     for (let i = 1; i <= knopen; i++) {
       const m = a[i] / b[i - 1];
       b[i] -= m * c[i - 1];
@@ -476,6 +540,11 @@ function droogte(h0, { L, K, D, mu, M }, { R, peil = 0, aanvoer = false, dagen =
     const nieuw = new Float64Array(knopen + 1);
     nieuw[knopen] = d[knopen] / b[knopen];
     for (let i = knopen - 1; i >= 0; i--) nieuw[i] = (d[i] - c[i] * nieuw[i + 1]) / b[i];
+    // wat een drain onttrekt: het tekort in de waterbalans van zijn knoop
+    onttrekking = new Map(werkt.map((i) => [i,
+      (Rs + (T * (nieuw[i - 1] - 2 * nieuw[i] + nieuw[i + 1])) / (dx * dx) - (mu * (nieuw[i] - h[i])) / dt) * dx]));
+    let drain = 0;
+    for (const v of onttrekking.values()) drain += v / L;
     // Afkappen: boven maaiveld stroomt het water oppervlakkig naar de sloot; onder de
     // ondoorlatende laag is het pakket leeg en stopt de verdamping uit het grondwater.
     const ruw = gem(nieuw);
@@ -489,11 +558,13 @@ function droogte(h0, { L, K, D, mu, M }, { R, peil = 0, aanvoer = false, dagen =
     uit.t.push(s * dt);
     uit.h.push(nieuw);
     uit.hGem.push(hg);
-    // + = afvoer naar de sloot, - = aanvoer uit de sloot (m/dag)
-    uit.sloot.push(Rs - (mu * (ruw - uit.hGem[s - 1])) / dt + (mu * gem(plas)) / dt);
+    // + = afvoer naar de sloot, - = aanvoer uit de sloot (m/dag); drains apart
+    uit.sloot.push(Rs - (mu * (ruw - uit.hGem[s - 1])) / dt + (mu * gem(plas)) / dt - drain);
+    uit.drain.push(drain);
     h = nieuw;
   }
   uit.sloot[0] = uit.sloot[1];
+  uit.drain[0] = uit.drain[1];
   return uit;
 }
 
@@ -517,6 +588,117 @@ function mazure(H, hp, kD, c, B) {
   const phi1 = hp + ((H - hp) * lambda) / (B + lambda);
   const phi = (x) => hp + (phi1 - hp) * Math.exp(-x / lambda);
   return { lambda, phi1, phi, kwel: (x) => (phi(x) - hp) / c, Q: (kD * (H - hp)) / (B + lambda) };
+}
+
+// ---------- Equivalente diepte, Ernst en buisdrainage ----------
+// Ritzema (red.), Drainage Principles and Applications (ILRI 16), hoofdstuk 8.
+
+// Equivalente diepte d van Hooghoudt (m), exacte reeks van Van der Molen en Wesseling
+// (Ritzema vgl. 8.9-8.13): radiale stroming naar een drain (straal r0) of sloot
+// (r0 = natte omtrek / pi) als horizontale stroming boven een denkbeeldige laag op d <= D.
+function equivalenteDiepte(L, D, r0) {
+  if (D <= 0) return 0;
+  const x = (2 * Math.PI * D) / L;
+  let F = 0;
+  if (x <= 0.5) F = Math.PI ** 2 / (4 * x) + Math.log(x / (2 * Math.PI));
+  else {
+    for (let n = 1; n < 60; n += 2) {
+      const e = Math.exp(-2 * n * x);
+      F += (4 * e) / (n * (1 - e));
+    }
+  }
+  const noemer = Math.log(L / (Math.PI * r0)) + F;
+  return noemer <= 0 ? D : Math.min((Math.PI * L) / 8 / noemer, D);
+}
+
+// Opbolling volgens Ernst, gesplitst in [verticaal, horizontaal, radiaal] (m):
+// h = q * (Dv/Kv + L^2/(8*KDh) + L/(pi*Kr) * ln(a*Dr/u)), Ritzema vgl. 8.21.
+// De radiale term wordt niet negatief (bij Dr < u is er geen radiale weerstand).
+function ernst(L, q, { Dv, Kv, KDh, Kr, a, Dr, u }) {
+  return [(q * Dv) / Kv, (q * L ** 2) / (8 * KDh), ((q * L) / (Math.PI * Kr)) * Math.max(Math.log((a * Dr) / u), 0)];
+}
+
+// Ernst voor een homogeen profiel (a = 1): verticale stroming tussen spiegel en drainniveau
+// (Dv = h), horizontale door K*(D' + h/2), radiale in D', met D' = min(D, L/4).
+// h staat zelf in Dv en KDh, dus wordt opgelost met bisectie. Geeft [hv, hh, hr].
+function ernstHomogeen(L, q, K, D, u) {
+  if (q <= 0) return [0, 0, 0];
+  const Dh = Math.min(D, L / 4);
+  const delen = (h) => ernst(L, q, { Dv: h, Kv: K, KDh: K * (Dh + h / 2), Kr: K, a: 1, Dr: Dh, u });
+  const som = (h) => delen(h).reduce((s, v) => s + v, 0);
+  let lo = 0, hi = 100;
+  if (hi - som(hi) < 0) return delen(hi); // q >= K: de regen kan niet verticaal wegzakken
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (mid - som(mid) < 0) lo = mid; else hi = mid;
+  }
+  return delen((lo + hi) / 2);
+}
+
+// Opbolling midden tussen twee gelijke drains of sloten: { h, d, delen }. D: dikte onder
+// drainniveau, r0: (equivalente) straal, u = pi * r0. Hooghoudt: d = equivalente diepte;
+// Ernst: d zo dat een Hooghoudt-ellips dezelfde h geeft (minimaal 0), delen = [hv, hh, hr].
+// Bij wegzijging (q < 0) zakt de spiegel uit met d = D.
+function opbollingStrook(L, q, K, D, r0, formule = "hooghoudt") {
+  if (q <= 0) return { h: opbolling(L / 2, L, q, K, D), d: D, delen: null };
+  if (formule === "ernst") {
+    const delen = ernstHomogeen(L, q, K, D, Math.PI * r0);
+    const h = delen[0] + delen[1] + delen[2];
+    return { h, d: Math.max((q * L ** 2) / K / (8 * h) - h / 2, 0), delen };
+  }
+  const d = equivalenteDiepte(L, D, r0);
+  return { h: opbollingMidden(L, q, K, K, d), d, delen: null };
+}
+
+// Grootste afstand (m) waarbij opbollingBij(L) onder hToel blijft (bisectie, 1-1000 m).
+function maxAfstand(hToel, opbollingBij) {
+  let lo = 1, hi = 1000;
+  if (opbollingBij(lo) > hToel) return NaN;
+  if (opbollingBij(hi) <= hToel) return hi;
+  for (let i = 0; i < 50; i++) {
+    const mid = (lo + hi) / 2;
+    if (opbollingBij(mid) <= hToel) lo = mid; else hi = mid;
+  }
+  return lo;
+}
+
+// Stationaire spiegel h(x) (m t.o.v. slootpeil) in een perceel met sloten op 0 en L.
+// drains: { x: [posities], peil (drainniveau t.o.v. slootpeil), r (buisstraal) } of null.
+// Het perceel valt uiteen in stroken tussen de randen (sloten en werkende drains); per strook
+// is h = lineair tussen de randpeilen + de opbolling van een symmetrische strook van die
+// breedte maal de vorm van de Hooghoudt-ellips. Een drain voert alleen af: hij werkt alleen
+// als de spiegel zonder die drain boven het drainniveau zou staan.
+// Geeft { h, actief (posities van de werkende drains) }.
+function spiegel(L, q, K, D, rSloot, drains = null, formule = "hooghoudt") {
+  const xs = drains?.x ?? [], p = drains?.peil ?? 0;
+  const profiel = (actief) => {
+    const randen = [[0, 0, false], ...[...actief].sort((a, b) => a - b).map((x) => [x, p, true]), [L, 0, false]];
+    const stroken = randen.slice(1).map(([b, hb, db], i) => {
+      const [a, ha, da] = randen[i], drain = da || db, w = b - a;
+      const { h: hS, d } = opbollingStrook(w, q, K, D + (drain ? p : 0), drain ? drains.r : rSloot, formule);
+      return { a, b, ha, hb, hS, d, w, midden: opbolling(w / 2, w, q, K, d) };
+    });
+    return (x) => {
+      const s = stroken.find((st) => x <= st.b) ?? stroken.at(-1);
+      const f = Math.min(Math.max((x - s.a) / s.w, 0), 1);
+      const vorm = s.midden ? opbolling(f * s.w, s.w, q, K, s.d) / s.midden : 0;
+      return s.ha + (s.hb - s.ha) * f + s.hS * vorm;
+    };
+  };
+  const actief = new Set(); // vanaf geen enkele drain: twee drains mogen elkaar niet kunstmatig 'ophouden'
+  for (let n = 0; n < 20; n++) {
+    let veranderd = false;
+    for (const x of xs) {
+      const zonder = profiel([...actief].filter((y) => y !== x));
+      const werkt = zonder(x) > p;
+      if (werkt !== actief.has(x)) {
+        veranderd = true;
+        if (werkt) actief.add(x); else actief.delete(x);
+      }
+    }
+    if (!veranderd) break;
+  }
+  return { h: profiel(actief), actief: [...actief].sort((a, b) => a - b) };
 }
 
 // Echte weerreeksen (KNMI daggegevens), gemaakt door haal_weer.py: P = neerslag,
@@ -551,13 +733,15 @@ const kleur = {
   rivier: 0x3a7bbf,
   pakket: 0xc9b27c,
   stijghoogte: 0xd2453b,
+  drain: 0xe8a33a,
 };
 const RIVIERBREEDTE = 40;
 
 // ---------- invoer ----------
 
 const $ = (id) => document.getElementById(id);
-const invoer = Object.fromEntries(["K", "L", "q", "D", "M", "n", "mu", "P", "E-verd", "opzet", "H", "c", "kD", "B", "perceel", "N", "E", "T"].map((k) => [k, $(k)]));
+const invoer = Object.fromEntries(["K", "L", "q", "D", "M", "n", "mu", "P", "E-verd", "opzet", "H", "c", "kD", "B", "perceel", "N", "E", "T",
+  "zd", "Ld", "rd", "uitlaat"].map((k) => [k, $(k)]));
 
 const EIGEN = "Eigen waarde";
 for (const naam of [...Object.keys(GRONDSOORTEN), EIGEN]) {
@@ -585,6 +769,15 @@ $("t").addEventListener("input", toon);
 $("aanvoer").addEventListener("change", bijwerken);
 $("kwel-aan").addEventListener("change", () => {
   $("paneel-kwel").hidden = !$("kwel-aan").checked;
+  bijwerken();
+});
+$("formule").addEventListener("change", bijwerken);
+$("drains-aan").addEventListener("change", () => {
+  $("paneel-drains").hidden = !$("drains-aan").checked;
+  bijwerken();
+});
+$("peilgestuurd").addEventListener("change", () => {
+  $("paneel-peilgestuurd").hidden = !$("peilgestuurd").checked;
   bijwerken();
 });
 const TABS = [["tab-bui", "bui"], ["tab-droog", "droog"], ["tab-weer", "weer"]];
@@ -623,6 +816,13 @@ function parameters() {
     c: Number(invoer.c.value),
     kD: Number(invoer.kD.value),
     B: Number(invoer.B.value),
+    formule: $("formule").value,
+    drainsAan: $("drains-aan").checked,
+    zd: Number(invoer.zd.value),
+    Ld: Number(invoer.Ld.value),
+    rd: Number(invoer.rd.value) / 1000, // mm -> m
+    peilgestuurd: $("drains-aan").checked && $("peilgestuurd").checked,
+    uitlaat: Number(invoer.uitlaat.value),
     perceel: Math.min(Number(invoer.perceel.value), Number(invoer.N.value)) - 1,
     N: Number(invoer.N.value),
     E: Number(invoer.E.value),
@@ -631,6 +831,47 @@ function parameters() {
 }
 
 const fmt = (v, d = 2) => v.toLocaleString("nl-NL", { minimumFractionDigits: d, maximumFractionDigits: d });
+
+// ---------- drainage ----------
+// Sloten en buisdrains als randen van het perceel. De drains liggen in het model evenwijdig aan
+// de sloten; in werkelijkheid meestal haaks erop, maar zolang de drainafstand veel kleiner is
+// dan de slootafstand stroomt het water in beide gevallen vooral naar de drains.
+
+// Equivalente straal van de sloot: natte omtrek (bodem en twee wanden) / pi.
+const slootStraal = ({ D }) => (SLOOTBREEDTE + 2 * Math.min(SLOOTDIEPTE, D * 0.5)) / Math.PI;
+
+// Drains gelijk verdeeld over het perceel, zo dicht mogelijk bij de gekozen drainafstand.
+function drainPosities({ L, Ld }) {
+  const n = Math.max(Math.round(L / Ld) - 1, 1);
+  return Array.from({ length: n }, (_, k) => (L * (k + 1)) / (n + 1));
+}
+
+// Hoogte van de drainbuis t.o.v. het oorspronkelijke slootpeil (niet onder de ondoorlatende laag).
+const drainNiveau = ({ M, zd, D }) => Math.max(M - zd, -D + 0.1);
+
+// Waterstand waarboven een drain afvoert: zijn uitlaat (buis + eventuele opzet), of het
+// slootpeil als de uitlaat onder water ligt.
+const drainPeil = (p, slootpeil = 0, opzet = 0) => Math.min(Math.max(drainNiveau(p) + opzet, slootpeil), p.M);
+
+// Strook die de stroming bepaalt: tussen twee drains, of zonder drains tussen twee sloten.
+function strook(p, q, slootpeil = 0) {
+  if (p.drainsAan) {
+    const pd = drainPeil(p, slootpeil);
+    const w = p.L / (drainPosities(p).length + 1);
+    return { w, Db: p.D + pd, pd, ...opbollingStrook(w, q, p.K, p.D + pd, p.rd, p.formule) };
+  }
+  const Db = p.D + slootpeil;
+  return { w: p.L, Db, pd: slootpeil, ...opbollingStrook(p.L, q, p.K, Db, slootStraal(p), p.formule) };
+}
+
+// Transmissiviteit voor Kraijenhoff en het droogtemodel: K maal de equivalente diepte.
+const transmissiviteit = (p, q, slootpeil = 0) => p.K * Math.max(strook(p, q, slootpeil).d, 0.05);
+
+// Stationaire spiegel bij neerslagoverschot q: { h, actief }.
+function stationair(p, q) {
+  const drains = p.drainsAan ? { x: drainPosities(p), peil: drainPeil(p), r: p.rd } : null;
+  return spiegel(p.L, q, p.K, p.D, slootStraal(p), drains, p.formule);
+}
 
 // ---------- scène ----------
 
@@ -676,7 +917,9 @@ const materiaal = {
   pakket: new THREE.MeshStandardMaterial({ color: kleur.pakket, roughness: 1 }),
   stijghoogte: new THREE.LineDashedMaterial({ color: kleur.stijghoogte, dashSize: 2, gapSize: 1.2 }),
   spiegel: new THREE.LineBasicMaterial({ color: kleur.spiegel }),
+  drain: new THREE.MeshStandardMaterial({ color: kleur.drain, roughness: 0.5 }),
 };
+const drainGeo = new THREE.CylinderGeometry(0.3, 0.3, PERCEELLENGTE + 2, 12);
 
 let polder = new THREE.Group();
 scene.add(polder);
@@ -715,10 +958,11 @@ function verzadigd(h, { L, D, M }) {
   return (som * dx) / 3;
 }
 
-function perceel(x0, p, h, plas) {
+function perceel(x0, p, h, plas, drains) {
   const { L, D, M, E } = p;
   const xs = Array.from({ length: STAPPEN + 1 }, (_, i) => (L * i) / STAPPEN);
   if (plas) xs.push(...plas);
+  if (drains) xs.push(...drains.x);
   xs.sort((a, b) => a - b);
 
   const top = xs.map((x) => [x0 + x, Math.min(Math.max(h(x), -D), M) * E]);
@@ -745,6 +989,14 @@ function perceel(x0, p, h, plas) {
   if (plas) {
     groep.add(doos(x0 + plas[0], x0 + plas[1], M * E, M * E + 0.15 * E, materiaal.plas));
   }
+
+  // drainbuizen, iets langer dan het perceel zodat de uiteinden zichtbaar zijn
+  for (const xd of drains?.x ?? []) {
+    const buis = new THREE.Mesh(drainGeo, materiaal.drain);
+    buis.rotation.x = Math.PI / 2;
+    buis.position.set(x0 + xd, drains.y * E, 0);
+    groep.add(buis);
+  }
   return groep;
 }
 
@@ -768,9 +1020,9 @@ function sloot(x0, { D, E }, niveau, stuw) {
 const perceelAfstand = (i, L) => SLOOTBREEDTE + i * (L + SLOOTBREEDTE) + L / 2;
 
 // hs[i]: spiegel van perceel i; niveaus[i]: waterstand in sloot i; kw: Mazure-resultaat of null.
-function bouwPolder(p, hs, niveaus, stuw = null, kw = null) {
+function bouwPolder(p, hs, niveaus, stuw = null, kw = null, drains = null) {
   scene.remove(polder);
-  polder.traverse((o) => o.geometry?.dispose());
+  polder.traverse((o) => o.geometry !== drainGeo && o.geometry?.dispose());
   polder = new THREE.Group();
 
   const breedte = p.N * (p.L + SLOOTBREEDTE) + SLOOTBREEDTE;
@@ -780,7 +1032,7 @@ function bouwPolder(p, hs, niveaus, stuw = null, kw = null) {
   for (let i = 0; i <= p.N; i++) {
     const xs = start + i * (p.L + SLOOTBREEDTE);
     polder.add(sloot(xs, p, niveaus[i], stuw));
-    if (i < p.N) polder.add(perceel(xs + SLOOTBREEDTE, p, hs[i], plassen[i]));
+    if (i < p.N) polder.add(perceel(xs + SLOOTBREEDTE, p, hs[i], plassen[i], drains));
   }
   const onder = -p.D * p.E;
   if (!kw) {
@@ -908,6 +1160,10 @@ function bijwerken() {
   $("B-out").value = `${p.B} m`;
   invoer.perceel.max = p.N;
   $("perceel-out").value = `${p.perceel + 1} van ${p.N}`;
+  $("zd-out").value = `${fmt(p.zd)} m`;
+  $("Ld-out").value = `${p.Ld} m`;
+  $("rd-out").value = `${Math.round(p.rd * 1000)} mm`;
+  $("uitlaat-out").value = `+${Math.round(p.uitlaat * 100)} cm`;
 
   // kwel per perceel (m/dag); bij peilopzet daalt de kwel omdat het polderpeil stijgt
   const kwelBij = (hp) => (p.kwelAan ? mazure(p.H, hp, p.kD, p.c, p.B) : null);
@@ -915,17 +1171,29 @@ function bijwerken() {
   const kwelVan = (k) => Array.from({ length: p.N }, (_, i) => (k ? k.kwel(perceelAfstand(i, p.L)) : 0));
   const s0 = kwelVan(kw);
 
-  // startprofiel per perceel: stationaire spiegel bij q + kwel, afgekapt op maaiveld
-  const h0 = s0.map((s) => (x) => Math.min(opbolling(x, p.L, p.q + s, p.K, p.D), p.M));
+  // startprofiel per perceel: stationaire spiegel bij q + kwel (Hooghoudt of Ernst, met de
+  // equivalente diepte en eventueel drains), afgekapt op maaiveld
+  const stat = s0.map((s) => stationair(p, p.q + s));
+  const h0 = stat.map((st) => (x) => Math.min(st.h(x), p.M));
   const { dt, eind } = MODI[modus];
   const j = p.perceel;
-  sim = { kw, s0, h0 };
+  const drains = p.drainsAan ? { x: drainPosities(p), y: drainNiveau(p) } : null;
+  sim = { kw, s0, stat, h0, drains };
 
   if (modus === "bui") {
-    sim.p = s0.map((s, i) => kraijenhoff(h0[i], p.L, p.K, p.D, p.mu, (t) => (t < 1 ? p.P : 0) + s, dt, Math.round(eind / dt)));
+    const regen = (s) => (t) => (t < 1 ? p.P : 0) + s;
+    if (p.drainsAan) {
+      // drains in het perceel: eindige differenties, de sloten op vast peil
+      sim.p = s0.map((s, i) => droogte(h0[i], { L: p.L, K: p.K, D: p.D, mu: p.mu, M: p.M, T: transmissiviteit(p, p.q + s) },
+        { R: regen(s), aanvoer: true, dagen: eind, dt, drains: { x: drains.x, peil: drainPeil(p) } }));
+      sim.p.forEach((r) => (r.afvoer = r.sloot.map((v, k) => v + r.drain[k])));
+    } else {
+      // Kraijenhoff van de Leur met transmissiviteit K * d
+      sim.p = s0.map((s, i) => kraijenhoff(h0[i], p.L, p.K, transmissiviteit(p, p.q + s) / p.K, p.mu, regen(s), dt, Math.round(eind / dt)));
+      sim.j = sim.p[j].j;
+    }
     sim.t = sim.p[0].t;
-    sim.j = sim.p[j].j;
-    tekenGrafiek("Afvoer naar de sloten (mm/dag)", [
+    tekenGrafiek(`Afvoer naar ${p.drainsAan ? "sloten en drains" : "de sloten"} (mm/dag)`, [
       { naam: "afvoer", klasse: "", waarden: sim.p[j].afvoer.map((v) => v * 1000) },
     ], { vanaf: 0 });
   } else {
@@ -934,15 +1202,25 @@ function bijwerken() {
     const dag = (t) => Math.min(Math.floor(t), w.P.length - 1);
     const basis = modus === "droog" ? () => -p.Everd : (t) => (w.P[dag(t)] - w.E[dag(t)]) / 1000;
     const sMet = kwelVan(kwelBij(p.opzet));
-    const grond = { L: p.L, K: p.K, D: p.D, mu: p.mu, M: p.M };
+    const grond = (q, peil) => ({ L: p.L, K: p.K, D: p.D, mu: p.mu, M: p.M, T: transmissiviteit(p, q, peil) });
     const opties = { aanvoer: p.aanvoer, dagen: eind, dt };
-    sim.ref = s0.map((s, i) => droogte(h0[i], grond, { ...opties, R: (t) => basis(t) + s, peil: 0 }));
-    sim.met = sMet.map((s, i) => droogte(h0[i], grond, { ...opties, R: (t) => basis(t) + s, peil: p.opzet }));
+    // peilgestuurde drainage: uitlaat hoog in het groeiseizoen (april t/m september), laag in de winter
+    const zomer = (t) => {
+      if (modus === "droog") return true;
+      const maand = new Date(Date.UTC(+w.start.slice(0, 4), +w.start.slice(4, 6) - 1, +w.start.slice(6) + dag(t))).getUTCMonth() + 1;
+      return maand >= 4 && maand <= 9;
+    };
+    const drainsBij = (peil, gestuurd) => (drains
+      ? { x: drains.x, peil: (t) => drainPeil(p, peil, gestuurd && zomer(t) ? p.uitlaat : 0) } : null);
+    sim.ref = s0.map((s, i) => droogte(h0[i], grond(p.q + s, 0),
+      { ...opties, R: (t) => basis(t) + s, peil: 0, drains: drainsBij(0, false) }));
+    sim.met = sMet.map((s, i) => droogte(h0[i], grond(p.q + s, p.opzet),
+      { ...opties, R: (t) => basis(t) + s, peil: p.opzet, drains: drainsBij(p.opzet, p.peilgestuurd) }));
     sim.t = sim.met[0].t;
     const midden = (r) => r.h.map((h) => knoopProfiel(h, p.L / 2, r.dx) - p.M);
     tekenGrafiek("Grondwaterstand midden perceel (m t.o.v. maaiveld)", [
       { naam: "zonder", klasse: "ref", waarden: midden(sim.ref[j]) },
-      { naam: `+${Math.round(p.opzet * 100)} cm`, klasse: "maatregel", waarden: midden(sim.met[j]) },
+      { naam: "met", klasse: "maatregel", waarden: midden(sim.met[j]) },
     ], { tot: 0 });
     tekenRegen(modus === "weer" ? w.P : null);
   }
@@ -957,15 +1235,42 @@ function bijwerken() {
   }
   vulLijst("kwel-uitkomst", rijen);
 
-  const Lmax = slootafstand(p.M, p.q + Math.max(...s0), p.K, p.K, p.D);
+  // drainage-uitkomsten voor het gekozen perceel: de strook die de stroming bepaalt
+  const st = strook(p, p.q + s0[j]);
+  const dr = [];
+  if (p.drainsAan) {
+    dr.push(["Drainafstand", `${fmt(st.w, 1)} m (${drains.x.length} per perceel)`]);
+    dr.push(["Werkende drains", `${stat[j].actief.length} van ${drains.x.length}`]);
+    dr.push(["Drain onder maaiveld", `${fmt(p.M - drains.y)} m`]);
+  }
+  if (st.delen) {
+    const tot = st.h || 1;
+    $("weerstanden").hidden = false;
+    ["v", "h", "r"].forEach((k, i) => ($(`w-${k}`).style.flexGrow = Math.max(st.delen[i] / tot, 0)));
+    dr.push(["Opbolling (Ernst)", `${fmt(st.h * 100, 0)} cm`]);
+    ["Verticaal", "Horizontaal", "Radiaal"].forEach((naam, i) => dr.push([naam,
+      `${fmt(st.delen[i] * 100, 0)} cm · ${Math.round((100 * st.delen[i]) / tot)}%`, "vhr"[i]]));
+  } else {
+    $("weerstanden").hidden = true;
+    dr.push(["Equivalente diepte d", `${fmt(st.d)} m (D = ${fmt(st.Db)} m)`]);
+  }
+  vulLijst("drainage-uitkomst", dr);
+
+  // grootste afstand waarbij het grondwater midden onder maaiveld blijft
+  const qMax = p.q + Math.max(...s0);
+  const Lmax = p.drainsAan
+    ? maxAfstand(p.M - st.pd, (w) => opbollingStrook(w, qMax, p.K, st.Db, p.rd, p.formule).h)
+    : maxAfstand(p.M, (w) => opbollingStrook(w, qMax, p.K, p.D, slootStraal(p), p.formule).h);
+  $("L-max-naam").textContent = p.drainsAan ? "Max. drainafstand" : "Max. slootafstand";
   $("L-max").textContent = Number.isFinite(Lmax) ? `${fmt(Lmax, 1)} m` : "–";
   toon();
 }
 
 function vulLijst(id, rijen) {
-  $(id).replaceChildren(...rijen.flatMap(([dt, dd]) => {
+  $(id).replaceChildren(...rijen.flatMap(([dt, dd, klasse]) => {
     const a = document.createElement("dt"), b = document.createElement("dd");
     a.textContent = dt;
+    if (klasse) a.className = klasse;
     b.textContent = dd;
     if (!dt) b.className = "klein";
     return [a, b];
@@ -982,11 +1287,10 @@ function toon() {
 
   let hs, R, niveaus = new Array(p.N + 1).fill(0), stuw = null;
   if (modus === "bui") {
-    // t = 0: de exacte ellips; daarna de reeksoplossing
-    hs = sim.p.map((r, i) => (k === 0
-      ? (x) => opbolling(x, p.L, p.q + sim.s0[i], p.K, p.D)
-      : (x) => reeksProfiel(r.b[k], x, p.L)));
-    R = k === 0 ? (p.P > 0 ? p.P : p.q) : sim.p[0].regen[k] - sim.s0[0];
+    // t = 0: de stationaire spiegel; daarna de reeksoplossing of (met drains) de knoopwaarden
+    hs = sim.p.map((r, i) => (k === 0 ? sim.stat[i].h
+      : r.b ? (x) => reeksProfiel(r.b[k], x, p.L) : (x) => knoopProfiel(r.h[k], x, r.dx)));
+    R = k === 0 ? (p.P > 0 ? p.P : p.q) : sim.t[k] < 1 ? p.P : 0;
   } else {
     hs = sim.met.map((r) => (x) => knoopProfiel(r.h[k], x, r.dx));
     R = modus === "weer" ? WEER[Number($("weer").value)].P[Math.min(Math.floor(sim.t[k]), MODI.weer.eind - 1)] / 1000
@@ -999,7 +1303,7 @@ function toon() {
     });
     if (p.opzet > 0) stuw = p.opzet;
   }
-  const { breedte, plassen } = bouwPolder(p, hs, niveaus, stuw, sim.kw);
+  const { breedte, plassen } = bouwPolder(p, hs, niveaus, stuw, sim.kw, sim.drains);
   pasCameraAan(breedte + (sim.kw ? p.B + RIVIERBREEDTE : 0), sim.kw ? -(p.B + RIVIERBREEDTE) / 2 : 0);
   bouwRegen(p, breedte, R);
 
@@ -1022,17 +1326,19 @@ function toon() {
   // uitkomsten van het tijdscenario (voor het gekozen perceel; vastgehouden water voor alle)
   const rijen = [];
   if (modus === "bui") {
-    rijen.push(["Reservoircoëfficiënt j", `${fmt(sim.j, 1)} dagen`]);
+    if (sim.j) rijen.push(["Reservoircoëfficiënt j", `${fmt(sim.j, 1)} dagen`]);
     rijen.push(["Afvoer nu", `${fmt(sim.p[j].afvoer[k] * 1000, 1)} mm/dag`]);
+    if (sim.drains) rijen.push(["waarvan via drains", `${fmt(sim.p[j].drain[k] * 1000, 1)} mm/dag`]);
   } else {
     const href = (r) => (x) => knoopProfiel(r.h[k], x, r.dx);
     const extra = sim.ref.reduce((s, r, i) => s + p.mu * (A[i] - verzadigd(href(r), p)), 0) * PERCEELLENGTE;
     const sloot = sim.met[j].sloot[k] * 1000;
     rijen.push(["Grondwater midden, zonder", `${fmt(href(sim.ref[j])(p.L / 2) - p.M)} m`]);
-    rijen.push(["Grondwater midden, met stuw", `${fmt(hMid - p.M)} m`]);
+    rijen.push(["Grondwater midden, met", `${fmt(hMid - p.M)} m`]);
     rijen.push(["Extra water vastgehouden", m3(extra)]);
     rijen.push(["", mmSchijf(extra, opp)]);
     rijen.push([sloot < 0 ? "Aanvoer uit sloot" : "Afvoer naar sloot", `${fmt(Math.abs(sloot), 1)} mm/dag`]);
+    if (sim.drains) rijen.push(["Afvoer via drains", `${fmt(sim.met[j].drain[k] * 1000, 1)} mm/dag`]);
     if (modus === "weer") {
       const w = WEER[Number($("weer").value)];
       const d = Math.min(Math.floor(sim.t[k]), w.P.length - 1);
@@ -1090,6 +1396,14 @@ function mooiBereik(min, max) {
   return [Math.floor(min / stap) * stap, Math.ceil(max / stap) * stap, stap];
 }
 
+// Beschrijving van de maatregel in de legenda, bijv. "met stuw +30 cm en peilgestuurde drainage".
+function maatregelTekst(p) {
+  const delen = [];
+  if (p.opzet > 0) delen.push(`stuw +${Math.round(p.opzet * 100)} cm`);
+  if (p.peilgestuurd) delen.push(`peilgestuurde drainage +${Math.round(p.uitlaat * 100)} cm`);
+  return delen.length ? `met ${delen.join(" en ")}` : "met (geen maatregel gekozen)";
+}
+
 function tekenGrafiek(titel, nieuweReeksen, { vanaf, tot }) {
   reeksen = nieuweReeksen;
   $("grafiek-titel").textContent = titel + (modus === "weer" ? "; balken: neerslag" : "");
@@ -1143,7 +1457,7 @@ function tekenGrafiek(titel, nieuweReeksen, { vanaf, tot }) {
   $("legenda").replaceChildren(...(reeksen.length > 1 ? reeksen.map((r) => {
     const el = document.createElement("span");
     el.innerHTML = `<i class="${r.klasse}"></i>`;
-    el.append(r.klasse === "ref" ? "zonder maatregel" : `met stuw ${r.naam}`);
+    el.append(r.klasse === "ref" ? "zonder maatregel" : maatregelTekst(parameters()));
     return el;
   }) : []));
 
